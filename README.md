@@ -12,7 +12,7 @@ Download this repository and place it in your quicklisp\local-projects\ folder s
 
 Download my [network-engine](https://github.com/ezrarush/network-engine) repository and place it in your quicklisp\local-projects\ folder so that quicklisp can load it as a dependency.
 
-Download my [graphics-engine]((https://github.com/ezrarush/graphics-engine) repository and place it in your quicklisp\local-projects\ folder so that quicklisp can load it as a dependency. 
+Download my [graphics-engine](https://github.com/ezrarush/graphics-engine) repository and place it in your quicklisp\local-projects\ folder so that quicklisp can load it as a dependency. 
 
 ###Server
 
