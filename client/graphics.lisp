@@ -22,6 +22,8 @@
     (gl:enable :depth-test)
     (gl:blend-func :src-alpha :one-minus-src-alpha)
     (gl:depth-func :greater)
+    
+    (setf waiting-message (make-instance 'text-billboard :text "Waiting for opponent"))
     (setf quad (make-instance 'ortho-quad))
     (setf circle (make-instance 'circle)))
   
@@ -31,32 +33,29 @@
     ;; GUI depth range (10, 1)
     ;; fields (-1,-10)
     
-    (set-ortho-world-pos (sb-cga:vec 5.0 5.0 1.0))
-    (set-ortho-scale (sb-cga:vec 20.0 20.0 1.0))
-    (update-ortho-pipeline camera proj-info)	 
-    (circle-render circle (get-ortho-projection-transform) (get-ortho-model-view-transform) (sb-cga:vec 1.0 0.0 0.0))
-    
-;;     (ecase (current-screen *game-state*)
-;;       (:title-screen
-       
-;;        (set-ortho-world-pos (sb-cga:vec 0.0 0.0 1.0))
-;;        (set-ortho-scale (sb-cga:vec 390.0 390.0 1.0))
-;;        (update-ortho-pipeline camera proj-info)
-;;        (ortho-quad-render quad (get-ortho-projection-transform) (get-ortho-model-view-transform) (sb-cga:vec 0.0 1.0 0.0)))
-      
-;;       (:waiting-for-opponent 
 
-;;        (set-ortho-world-pos (sb-cga:vec 0.0 0.0 1.0))
-;;        (set-ortho-scale (sb-cga:vec 200.0 50.0 1.0))
-;;        (update-ortho-pipeline camera proj-info)
-;;        (text-billboard-render waiting-message (get-ortho-projection-transform) (get-ortho-model-view-transform)))
-      
-;;       (:game-play
-  
-;; )
+    
+    (ecase (current-screen *game-state*)
+      (:title-screen
        
-;;       (:end-score))
-    )
+       (set-ortho-world-pos (sb-cga:vec 0.0 0.0 1.0))
+       (set-ortho-scale (sb-cga:vec 390.0 390.0 1.0))
+       (update-ortho-pipeline camera proj-info)
+       (ortho-quad-render quad (get-ortho-projection-transform) (get-ortho-model-view-transform) (sb-cga:vec 0.0 1.0 0.0)))
+      
+      (:waiting-for-opponent 
+
+       (set-ortho-world-pos (sb-cga:vec 0.0 0.0 1.0))
+       (set-ortho-scale (sb-cga:vec 200.0 50.0 1.0))
+       (update-ortho-pipeline camera proj-info)
+       (text-billboard-render waiting-message (get-ortho-projection-transform) (get-ortho-model-view-transform)))
+      
+      (:game-play
+       (set-ortho-world-pos (sb-cga:vec 5.0 5.0 1.0))
+       (set-ortho-scale (sb-cga:vec 20.0 20.0 1.0))
+       (update-ortho-pipeline camera proj-info)	 
+       (circle-render circle (get-ortho-projection-transform) (get-ortho-model-view-transform) (sb-cga:vec 1.0 0.0 0.0)))
+      (:end-score)))
     
   (defun get-3d-ray-under-mouse (x y)
     (let ((viewport (list 0.0 0.0 *window-width* *window-height*)))

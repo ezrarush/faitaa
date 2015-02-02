@@ -13,11 +13,14 @@
   :components ((:module client
 			:components ((:file "package")
 				     (:file "serial")
+				     (:file "message")
+				     (:file "game-state")
 				     (:file "graphics")
 				     (:file "client")))
 	       (:module server
 			:components ((:file "package")
 				     (:file "serial")
 				     (:file "client-database")
+				     (:file "message")
 				     (:file "server")))))
 

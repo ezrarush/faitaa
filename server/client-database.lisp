@@ -27,12 +27,20 @@
     (remhash id *clients*)))
 
 (defclass client ()
-  ((id :type integer
-       :initform (make-client-id)
-       :accessor client-id)
-   (name 
+  ((name 
     :initarg :name
     :accessor name)
+   (id :type integer
+       :initform (make-client-id)
+       :accessor client-id)
+   (entity-id)
+   (hand-shaken)
+   (synced-p)
+   (ready-p)
+   (last-seen-command-time)
+   (delta-to-first-tick)
+   (last-agreed-status)
+   (first-delta-set-p)
    (channel
     :initarg :channel
     :accessor channel)))
