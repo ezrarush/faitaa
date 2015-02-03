@@ -32,6 +32,8 @@
     (start-server server-ip port)
     
     (setf *scene* (make-instance 'scene))
+    (setf (current-world-state *game-state*) (current-world-state *scene*)) ;; necessary???
+    (setf (previous-world-state *game-state*) (previous-world-state *scene*)) ;; necessary ???
     
     (setf *last-time* (sdl2:get-ticks))
     (unwind-protect

@@ -20,7 +20,10 @@
 	       (:module server
 			:components ((:file "package")
 				     (:file "serial")
-				     (:file "client-database")
 				     (:file "message")
+				     (:file "client-database")
+				     (:file "world-state")
+				     (:file "scene")
+				     (:file "game-state")
 				     (:file "server")))))
 

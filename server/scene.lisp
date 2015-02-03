@@ -9,8 +9,12 @@
   ((entities)
    (hit-records)
    (next-available-id)
-   (current-world-state)
-   (previous-world-state)
+   (current-world-state
+    :initform (make-world-state)
+    :accessor current-world-state)
+   (previous-world-state
+    :initform (make-world-state)
+    :accessor previous-world-state)
    (past-world-states)
    (hit-queue)))
 
