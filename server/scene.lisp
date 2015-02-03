@@ -1,8 +1,8 @@
 (in-package #:faitaa-server)
 
 (defstruct hit-record
-  owner ; the one that attacked
-  entity-id ; the target(s)
+  (owner)				; the one that attacked
+  (entity-id)				; the target(s)
   )
 
 (defclass scene ()

@@ -30,6 +30,9 @@
 	    sdl2-ffi:+sdl-patchlevel+)
     (finish-output)
     (start-server server-ip port)
+    
+    (setf *scene* (make-instance 'scene))
+    
     (setf *last-time* (sdl2:get-ticks))
     (unwind-protect
 	 (sdl2:with-event-loop (:method :poll)

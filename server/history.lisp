@@ -1,8 +1,10 @@
 (in-package #:faitaa-server)
 
 (defclass history ()
-  ((oldest-event-this-tick)
-   (youngest-event-this-tick)
+  ((oldest-event-this-tick
+    :initform 0)
+   (youngest-event-this-tick
+    :initform 0)
    (data)
    (null-event)))
 
@@ -11,5 +13,3 @@
 (defmethod add ((self history) event))
 (defmethod get-next-event ((self history) deadline))
 (defmethod cleanup ((self history) deadline))
-
-

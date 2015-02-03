@@ -1,6 +1,6 @@
 (in-package #:faitta-server)
 
 (defstruct world-state
-  entity-count
-  entities
-  time)
+  (entity-count 0)
+  (entities)
+  ( time 0))
