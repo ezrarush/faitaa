@@ -86,14 +86,13 @@
 		       
 		       ;; input check
 		       (unless (equalp current-input-state (input-state *game-state*))
-			 (format t "new input-state: ~a~%" current-input-state)
 			 (setf (input-state *game-state*) (copy-structure current-input-state))
 			 (let ((event (make-event :type :move 
 						  :input current-input-state 
 						  :time (sdl2:get-ticks)
 						  :entity-id (client-id *game-state*)
 						  :owner (client-id *game-state*))))
-			   (format t "new event: ~a~%" event)))
+			   (add (history *game-state*) event)))
 		       
 		       (read-message)
 		       

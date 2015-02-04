@@ -16,6 +16,7 @@
 				     (:file "message")
 				     (:file "input-state")
 				     (:file "event")
+				     (:file "history")
 				     (:file "game-state")
 				     (:file "graphics")
 				     (:file "client")))

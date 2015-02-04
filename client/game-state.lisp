@@ -45,7 +45,9 @@
     :initform 0)
    (incoming-last-delta
     :initform 0)
-   (history)
+   (history
+    :initform (make-instance 'history)
+    :accessor history)
    (incoming-isc)
    (last-command-cast
     :initform 0)
