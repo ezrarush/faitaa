@@ -12,7 +12,9 @@
     :initform 1)
    (max-pps
     :initform 0)
-   (current-input-state)
+   (current-input-state
+    :initform (make-input-state)
+    :accessor current-input-state)
    (scene)
    (connected-p
     :initform nil)

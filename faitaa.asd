@@ -14,6 +14,7 @@
 			:components ((:file "package")
 				     (:file "serial")
 				     (:file "message")
+				     (:file "input-state")
 				     (:file "game-state")
 				     (:file "graphics")
 				     (:file "client")))
