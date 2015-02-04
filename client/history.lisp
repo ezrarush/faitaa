@@ -11,12 +11,16 @@
 
 (defmethod add ((self history) event)
   (with-slots (data) self
-    ;;TODO find a suitable time spot - if already taken just increase time 1 ms
-    (assert (not (multiple-value-bind (entry exists) (gethash (time event) data)
-		   exists)))
-    (setf (gethash (time event) data) event))
-  (format t "new event added to history:~%~a~%" event)
-  (finish-output))
+    ;; if time slot already has an event, increase time by 1 ms and try to add again
+    (if (multiple-value-bind (entry exists) (gethash (event-time event) data)
+	   exists)
+	(progn 
+	  (incf (event-time event))
+	  (add self event))
+	(progn
+	  (setf (gethash (event-time event) data) event)
+	  (format t "new event added to history:~%~a~%" event)
+	  (finish-output)))))
 
 (defmethod update ((self history) event))
 (defmethod cleanup ((self history) deadline))
