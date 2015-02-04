@@ -36,8 +36,6 @@
 	(unwind-protect
 	     (progn
 	       (connect-to-server server-ip port)
-
-
 	       (unwind-protect
 		    (sdl2:with-event-loop (:method :poll)
 		      (:keydown
@@ -47,7 +45,7 @@
 			     (mod-value (sdl2:mod-value keysym)))
 			 (ecase (current-screen *game-state*)
 			   (:title-screen)
-			   (:waiting-for-opponent)
+;;			   (:waiting-for-opponent)
 			   (:game-play
 			    (cond
 			      ((sdl2:scancode= scancode :scancode-w) 
@@ -66,8 +64,9 @@
 			  (format t "sending login message to server~%")
 			  (finish-output)		
 			  (send-message (make-login-message name))
-			  (setf (current-screen *game-state*) :waiting-for-opponent))
-			 (:waiting-for-opponent)
+			  ;; (setf (current-screen *game-state*) :waiting-for-opponent)
+			  )
+;;			 (:waiting-for-opponent)
 			 (:game-play)
 			 (:end-score)))
 		      (:idle

@@ -41,7 +41,6 @@
     (loop for channel being the hash-value in network-engine:*channels* do
 	 (send-message channel (make-match-begin-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel))))))
 
-
 (defun handle-input-message (message)
   (userial:with-buffer message 
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield)
@@ -72,9 +71,9 @@
 			:uint32 ack
 			:uint32 ack-bitfield)))
 
-(defun make-update-data-message (sequence ack ack-bitfield data)
+(defun make-snapshot-message (sequence ack ack-bitfield data)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :server-opcode :update-data
+    (userial:serialize* :server-opcode :snapshot
 			:uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield

@@ -15,15 +15,16 @@
     (userial:buffer-rewind)
     (ecase (userial:unserialize :server-opcode)
       (:welcome     (handle-welcome-message message))
-      (:update-data (handle-update-data-message message)))))
+      (:snapshot (handle-snapshot-message message)))))
 
 (defun handle-welcome-message (message)
   (userial:with-buffer message
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 client-id)
 			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield)
+			      (setf (current-screen *game-state*) :game-play)
 			      (setf *client-id* client-id))))
 
-(defun handle-update-data-message (message)
+(defun handle-snapshot-message (message)
   (userial:with-buffer message
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 data)
 			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield))))

@@ -1,4 +1,4 @@
-(in-package #:faitta-server)
+(in-package #:faitaa-client)
 
 (defstruct input-state
   (left-p nil)
@@ -18,7 +18,3 @@
   (item-count 0)
   (max-items 20)
   isc-count)
-
-(defun changes-for-others (id)
-  
-  ) 

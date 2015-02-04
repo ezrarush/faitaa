@@ -32,8 +32,8 @@
     (start-server server-ip port)
     
     (setf *scene* (make-instance 'scene))
-    (setf (current-world-state *game-state*) (current-world-state *scene*)) ;; necessary???
-    (setf (previous-world-state *game-state*) (previous-world-state *scene*)) ;; necessary ???
+;;    (setf (current-world-state *game-state*) (current-world-state *scene*)) ;; necessary???
+;;    (setf (previous-world-state *game-state*) (previous-world-state *scene*)) ;; necessary ???
     
     (setf *last-time* (sdl2:get-ticks))
     (unwind-protect
@@ -42,11 +42,10 @@
 	    ()
 	    (read-message)
 	    (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
-	    (when (>= *delta-time* 30)
-	      (incf *last-time* 30)
+	    (when (>= *delta-time* (tick-time *game-state*))
+	      (incf *last-time* (tick-time *game-state*))
 	      (loop for channel being the hash-value in network-engine:*channels* do
-		   (send-message channel (make-update-data-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (random 10)))
+		   (send-message channel (make-snapshot-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (random 10)))
 		   (network-engine:update-metrics channel))))
 	   (:quit () t))
       (stop-server))))
-

@@ -39,7 +39,8 @@
    (sent-timeout
     :initform 4000)
    (tick-time
-    :initform 50)
+    :initform 50
+    :reader tick-time)
    (history-timeout
     :initform 4000)
    (history-length

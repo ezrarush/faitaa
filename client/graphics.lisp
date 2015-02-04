@@ -33,8 +33,6 @@
     ;; GUI depth range (10, 1)
     ;; fields (-1,-10)
     
-
-    
     (ecase (current-screen *game-state*)
       (:title-screen
        
@@ -43,12 +41,11 @@
        (update-ortho-pipeline camera proj-info)
        (ortho-quad-render quad (get-ortho-projection-transform) (get-ortho-model-view-transform) (sb-cga:vec 0.0 1.0 0.0)))
       
-      (:waiting-for-opponent 
-
-       (set-ortho-world-pos (sb-cga:vec 0.0 0.0 1.0))
-       (set-ortho-scale (sb-cga:vec 200.0 50.0 1.0))
-       (update-ortho-pipeline camera proj-info)
-       (text-billboard-render waiting-message (get-ortho-projection-transform) (get-ortho-model-view-transform)))
+      ;; (:waiting-for-opponent 
+      ;;  (set-ortho-world-pos (sb-cga:vec 0.0 0.0 1.0))
+      ;;  (set-ortho-scale (sb-cga:vec 200.0 50.0 1.0))
+      ;;  (update-ortho-pipeline camera proj-info)
+      ;;  (text-billboard-render waiting-message (get-ortho-projection-transform) (get-ortho-model-view-transform)))
       
       (:game-play
        (set-ortho-world-pos (sb-cga:vec 5.0 5.0 1.0))
