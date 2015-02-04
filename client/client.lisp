@@ -2,8 +2,6 @@
 
 (defvar *server-connection* nil)
 (defvar *channel*)
-(defvar *client-id* nil)
-
 (defvar *last-time*)
 (defvar *delta-time*)
 
@@ -85,14 +83,26 @@
 		      
 		      (:idle
 		       ()
+		       
+		       ;; input check
 		       (unless (equalp current-input-state (input-state *game-state*))
 			 (format t "new input-state: ~a~%" current-input-state)
-			 (setf (input-state *game-state*) (copy-structure current-input-state)))
+			 (setf (input-state *game-state*) (copy-structure current-input-state))
+			 (let ((event (make-event :type :move 
+						  :input current-input-state 
+						  :time (sdl2:get-ticks)
+						  :entity-id (client-id *game-state*)
+						  :owner (client-id *game-state*))))
+			   (format t "new event: ~a~%" event)))
+		       
 		       (read-message)
+		       
+		       ;; tick
 		       (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
 		       (when (>= *delta-time* (tick-time *game-state*))
 			 (incf *last-time* (tick-time *game-state*))
-			 (when *client-id* (send-message (make-input-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*))))
+			 (when (client-id *game-state*) 
+			   (send-message (make-input-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*))))
 			 (network-engine:update-metrics *channel*))
 		       (render-scene)
 		       (sdl2:gl-swap-window win))

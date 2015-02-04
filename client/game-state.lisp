@@ -1,13 +1,16 @@
 (in-package #:faitaa-client)
 
 (defclass game-state ()
-  ((player-id 
-    :initarg :player-id
-    :accessor player-id)
+  ((client-id 
+    :initform nil
+    :initarg :client-id
+    :accessor client-id)
    (current-screen 
     :initform :title-screen
     :accessor current-screen)
-   (name)
+   (client-name
+    :initarg :client-name
+    :accessor client-name)
    (avg-pps
     :initform 1)
    (max-pps

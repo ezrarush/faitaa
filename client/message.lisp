@@ -22,7 +22,7 @@
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 client-id)
 			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield)
 			      (setf (current-screen *game-state*) :game-play)
-			      (setf *client-id* client-id))))
+			      (setf (client-id *game-state*) client-id))))
 
 (defun handle-snapshot-message (message)
   (userial:with-buffer message

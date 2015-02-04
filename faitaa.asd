@@ -15,6 +15,7 @@
 				     (:file "serial")
 				     (:file "message")
 				     (:file "input-state")
+				     (:file "event")
 				     (:file "game-state")
 				     (:file "graphics")
 				     (:file "client")))

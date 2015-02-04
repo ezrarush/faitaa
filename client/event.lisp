@@ -2,7 +2,7 @@
 
 (defstruct event
   (time 0)
-  type		   ; nullevent, spawn, move, staterefresh, hit
+  (type :null-event)	     ; :null-event, :spawn, :move, :state-refresh, :hit
   (sequence 0)
   input
   owner ; for hit, the one that hits
