@@ -9,7 +9,7 @@
 
 (defun connect-to-server (server-ip port)
   (assert (not *server-connection*))
-  (setf *server-connection* 
+  (setf *server-connection*
 	(usocket:socket-connect server-ip
 				port
 				:protocol :datagram
@@ -34,79 +34,71 @@
 	(graphics-init)
 	(setf *last-time* (sdl2:get-ticks))
 	(unwind-protect
-	     (progn
+	     (let ((current-input-state (make-input-state)))
 	       (connect-to-server server-ip port)
 	       (unwind-protect
 		    (sdl2:with-event-loop (:method :poll)
+		      
 		      (:keydown
 		       (:keysym keysym)
-		       (let ((scancode (sdl2:scancode-value keysym))
-			     (input-state (current-input-state *game-state*)))
-			 (ecase (current-screen *game-state*)
-			   (:title-screen)
-			   (:game-play
-			    (cond
-			      ((sdl2:scancode= scancode :scancode-w) 
-			       (setf (input-state-up-p input-state) t) 
-			       (format t "~a~%" "KEYDOWN:WALK UP"))
-			      ((sdl2:scancode= scancode :scancode-a)
-			       (setf (input-state-left-p input-state) t)
-			       (format t "~a~%" "KEYDOWN:WALK LEFT"))
-			      ((sdl2:scancode= scancode :scancode-s)
-			       (setf (input-state-attack-p input-state) t)
-			       (format t "~a~%" "KEYDOWN:WALK DOWN"))
-			      ((sdl2:scancode= scancode :scancode-d)
-			       (setf (input-state-right-p input-state) t)
-			       (format t "~a~%" "KEYDOWN:WALK RIGHT"))))
-			   (:end-score))
-			 (format t "input-state: ~a~%"
-				 input-state)))
-		       (:keyup
-			(:keysym keysym)
-			(let ((scancode (sdl2:scancode-value keysym))
-			      (input-state (current-input-state *game-state*)))
+		       (let ((scancode (sdl2:scancode-value keysym)))
 			 (ecase (current-screen *game-state*)
 			   (:title-screen)
 			   (:game-play
 			    (cond
 			      ((sdl2:scancode= scancode :scancode-w)
-			       (setf (input-state-up-p input-state) nil)
-			       (format t "~a~%" "KEYUP:WALK UP"))
+			       (setf (input-state-up-p current-input-state) t))
 			      ((sdl2:scancode= scancode :scancode-a)
-			       (setf (input-state-left-p input-state) nil)
-			       (format t "~a~%" "KEYUP:WALK LEFT"))
+			       (setf (input-state-left-p current-input-state) t))
+			      ((sdl2:scancode= scancode :scancode-s)
+			       (setf (input-state-attack-p current-input-state) t))
+			      ((sdl2:scancode= scancode :scancode-d)
+			       (setf (input-state-right-p current-input-state) t))))
+			   (:end-score))))
+		      
+		       (:keyup
+			(:keysym keysym)
+			(let ((scancode (sdl2:scancode-value keysym)))
+			 (ecase (current-screen *game-state*)
+			   (:title-screen)
+			   (:game-play
+			    (cond
+			      ((sdl2:scancode= scancode :scancode-w)
+			       (setf (input-state-up-p current-input-state) nil))
+			      ((sdl2:scancode= scancode :scancode-a)
+			       (setf (input-state-left-p current-input-state) nil))
 			      ((sdl2:scancode= scancode :scancode-s) 
-			       (setf (input-state-attack-p input-state) nil)
-			       (format t "~a~%" "KEYUP:WALK DOWN"))
+			       (setf (input-state-attack-p current-input-state) nil))
 			      ((sdl2:scancode= scancode :scancode-d) 
-			       (setf (input-state-right-p input-state) nil)
-			       (format t "~a~%" "KEYUP:WALK RIGHT"))))
-			   (:end-score))
-			 (format t "input-state: ~a~%"
-				 input-state)))
-		      (:mousebuttondown 
+			       (setf (input-state-right-p current-input-state) nil))))
+			   (:end-score))))
+		       
+		      (:mousebuttondown
 		       (:x x :y y :button button)
 		       (ecase (current-screen *game-state*)
 			 (:title-screen
 			  (format t "sending login message to server~%")
-			  (finish-output)		
-			  (send-message (make-login-message name))
-			  ;; (setf (current-screen *game-state*) :waiting-for-opponent)
-			  )
-;;			 (:waiting-for-opponent)
+			  (finish-output)
+			  (send-message (make-login-message name)))
 			 (:game-play)
 			 (:end-score)))
+		      
 		      (:idle
 		       ()
+		       (unless (equalp current-input-state (input-state *game-state*))
+			 (format t "new input-state: ~a~%" current-input-state)
+			 (setf (input-state *game-state*) (copy-structure current-input-state)))
 		       (read-message)
 		       (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
-		       (when (>= *delta-time* 100)
-			 (incf *last-time* 100)
+		       (when (>= *delta-time* (tick-time *game-state*))
+			 (incf *last-time* (tick-time *game-state*))
 			 (when *client-id* (send-message (make-input-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*))))
 			 (network-engine:update-metrics *channel*))
 		       (render-scene)
 		       (sdl2:gl-swap-window win))
-		      (:quit () t))	   
+		      
+		      (:quit () t))
+		 
 		 (format t "logging out~%")
 		 (finish-output)
 		 (send-message (make-logout-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*)))))

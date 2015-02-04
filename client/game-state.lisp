@@ -12,9 +12,9 @@
     :initform 1)
    (max-pps
     :initform 0)
-   (current-input-state
+   (input-state
     :initform (make-input-state)
-    :accessor current-input-state)
+    :accessor input-state)
    (scene)
    (connected-p
     :initform nil)
@@ -70,7 +70,8 @@
    (resend-time
     :initform 400)
    (tick-time
-    :initform (/ 1000 30))
+    :initform (/ 1000 30)
+    :reader tick-time)
    (server-tick-time
     :initform 50)
    (max-message-count
