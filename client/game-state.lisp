@@ -18,7 +18,9 @@
    (input-state
     :initform (make-input-state)
     :accessor input-state)
-   (scene)
+   (scene
+    :initform (make-instance 'scene)
+    :reader scene)
    (connected-p
     :initform nil)
    (ready-p

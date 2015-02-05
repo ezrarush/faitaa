@@ -6,7 +6,7 @@
 		       (length buffer))
   (network-engine:process-sent-packet *channel* (sdl2:get-ticks) (length buffer)))
 
-(defun read-message ()
+(defun read-messages ()
   (loop until (not (usocket:wait-for-input *server-connection* :timeout 0 :ready-only t)) do 
     (handle-message-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil))))
 
@@ -15,7 +15,7 @@
     (userial:buffer-rewind)
     (ecase (userial:unserialize :server-opcode)
       (:welcome     (handle-welcome-message message))
-      (:snapshot (handle-snapshot-message message)))))
+      (:world-state (handle-world-state-message message)))))
 
 (defun handle-welcome-message (message)
   (userial:with-buffer message
@@ -24,7 +24,7 @@
 			      (setf (current-screen *game-state*) :game-play)
 			      (setf (client-id *game-state*) client-id))))
 
-(defun handle-snapshot-message (message)
+(defun handle-world-state-message (message)
   (userial:with-buffer message
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 data)
 			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield))))

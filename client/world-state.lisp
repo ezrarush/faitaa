@@ -3,4 +3,4 @@
 (defstruct world-state
   (entity-count 0)
   entities
-  ( time 0))
+  (time 0))

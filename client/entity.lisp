@@ -11,7 +11,7 @@
   (owner 0)
   (id 0)
   (pos (sb-cga:vec 300.0 300.0 0.0))
-  (vel (sb-cga:vec 0.0 0.0 0.0))
+  (vel (sb-cga:vec 1.0 1.0 0.0))
   (in-air-p t)
   (attacking-p nil)
   (blocking-p nil)
@@ -23,9 +23,12 @@
   )
 
 (defclass entity ()
-  ((status)
+  ((status
+    :initform (make-entity-status)
+    :accessor status)
    (owner)
-   (id)
+   (id
+    :accessor id)
    (attack-start-up
     :initform 80)
    (attack-active
@@ -58,3 +61,43 @@
     :initform t)
    (prev-facing-right
     :initform t)))
+
+;; (defmethod render ((self entity) window))
+
+(defmethod temp-update ((self entity)) ;; simple movement for testing. remove this asap
+  (with-slots (status) self
+    (when (input-state-right-p (entity-status-current-input-state status))
+      (setf (entity-status-pos status) (sb-cga:vec+ (entity-status-pos status) 
+						    (sb-cga:vec 1.0 
+								0.0
+								0.0))))))
+
+(defmethod update-with-delta ((self entity) delta-time)
+  (with-slots (status) self
+    (let ((delta (/ delta-time 1000.0)))
+      ; first apply last velocity
+      (setf (entity-status-pos status) (sb-cga:vec+ (entity-status-pos status) 
+      						    (sb-cga:vec (* (aref (entity-status-vel status) 0) delta) 
+      								(* (aref (entity-status-vel status) 1) delta)
+      								0.0)))
+      ;calculate new velocity on the basis of where we are and what the inputstate is 
+      )
+
+    (setf (entity-status-last-updated status) (+ (entity-status-last-updated status) delta-time))))
+
+(defmethod update-at ((self entity) time))
+(defmethod update-without-delta ((self entity) delta-time))
+
+(defmethod set-input-state-at ((self entity) input-state time)
+  (with-slots (status) self
+    ;; (update-with-delta self (- time (entity-status-last-updated status)))
+					; update with current state, adjust counter
+    (setf (entity-status-current-input-state status) input-state)
+    (temp-update self) ; for testing only, remove asap
+    ))
+
+(defmethod set-status ((self entity) entity-status))
+(defmethod hit ((self entity) left-p top-p time))
+(defmethod set-up-animations ((self entity)))
+(defmethod can-block-p ((self entity)))
+(defmethod can-attack-p ((self entity)))

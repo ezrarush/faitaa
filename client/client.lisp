@@ -84,21 +84,20 @@
 		      (:idle
 		       ()
 		       
-		       ;; input check
+		       ; input check
 		       (unless (equalp current-input-state (input-state *game-state*))
 			 (setf (input-state *game-state*) (copy-structure current-input-state))
-			 (let* ((time (sdl2:get-ticks))
-				(event (make-event :type :move 
+			 (let ((event (make-event :type :move 
 						  :input current-input-state 
-						  :time time
+						  :time (sdl2:get-ticks)
 						  :entity-id (client-id *game-state*)
-						  :owner (client-id *game-state*)))
-				(event2 (make-event :time time)))
+						  :owner (client-id *game-state*))))
 			   (add (history *game-state*) event)
-			   (add (history *game-state*) event2)
+			   ; set player state 
+			   ;; (set-client-input-state-at (scene *game-state*) (event-input event) (event-time event))
 			   ))
 		       
-		       (read-message)
+		       (read-messages)
 		       
 		       ;; tick
 		       (setf *delta-time* (- (sdl2:get-ticks) *last-time*))

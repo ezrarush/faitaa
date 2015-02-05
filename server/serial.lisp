@@ -4,4 +4,4 @@
                       (:login :input :logout))
 
 (userial:make-enum-serializer :server-opcode
-                      (:welcome :snapshot))
+                      (:welcome :world-state))

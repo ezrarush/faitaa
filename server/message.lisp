@@ -71,9 +71,9 @@
 			:uint32 ack
 			:uint32 ack-bitfield)))
 
-(defun make-snapshot-message (sequence ack ack-bitfield data)
+(defun make-world-state-message (sequence ack ack-bitfield data)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :server-opcode :snapshot
+    (userial:serialize* :server-opcode :world-state
 			:uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
