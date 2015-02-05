@@ -17,7 +17,9 @@
   (hit-needs-release-p nil))
 
 (defclass entity ()
-  ((status)
+  ((status
+    :initform (make-entity-status)
+    :accessor status)
    (attack-start-up
     :initform 80)
    (attack-active
@@ -27,7 +29,8 @@
    (hit-stun
     :initform 400)
    (shape)
-   (color)
+   (color
+    :initarg :color)
    (acceleration
     :initform 800.0)
    (air-acceleration
@@ -39,11 +42,11 @@
    (friction
     :initform 20)
    (screen-size
-    :initform (sb-cga:vec 640.0 480.0))))
+    :initform (sb-cga:vec 640.0 480.0 0.0))))
 
 ;; (defmethod render ((self entity) window))
-(defmethod can-i-block ((self entity)))
-(defmethod can-i-attack ((self entity)))
+(defmethod can-block-p ((self entity)))
+(defmethod can-attack-p ((self entity)))
 (defmethod update-with-delta ((self entity) delta-time))
 (defmethod update-at ((self entity) time))
 (defmethod set-input-state-at ((self entity) time))

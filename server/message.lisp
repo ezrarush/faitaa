@@ -32,7 +32,11 @@
 	    (channel (network-engine:make-channel *current-remote-host* *current-remote-port*)))
 	(setf (channel client) channel)  
 	(send-message channel (make-handshake-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (client-id client)))
-	(format t "client ~a logged in~%" (client-id client))
+	(add (scene *game-state*) client :red)
+	;; (setf (id (last-agreed-status client)) (client-id client))
+	;; (setf (owner (last-agreed-status client)) (client-id client))
+	;; mISC.mIscCount[i] = 0; // setting up input change records
+	(format t "~a (client-id: ~a) logged in~%" name (client-id client))
 	(finish-output))))
   (when (= (hash-table-count *clients*) 2)
     (format t "2 players found, starting match~%")

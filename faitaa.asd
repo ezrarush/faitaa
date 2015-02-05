@@ -28,6 +28,7 @@
 				     (:file "serial")
 				     (:file "message")
 				     (:file "client-database")
+				     (:file "entity")
 				     (:file "world-state")
 				     (:file "scene")
 				     (:file "game-state")

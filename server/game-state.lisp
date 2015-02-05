@@ -3,6 +3,9 @@
 (defclass game-state ()
   ((pause
     :initform 5)
+   (scene
+    :initform (make-instance 'scene)
+    :accessor scene)
    (everyone-synced-p)
    (sync-attempted-p)
    (clock)

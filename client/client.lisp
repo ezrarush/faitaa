@@ -75,7 +75,7 @@
 		       (:x x :y y :button button)
 		       (ecase (current-screen *game-state*)
 			 (:title-screen
-			  (format t "sending login message to server~%")
+			  (format t "connecting to server~%")
 			  (finish-output)
 			  (send-message (make-first-contact-message name)))
 			 (:game-play)
@@ -111,7 +111,7 @@
 		      
 		      (:quit () t))
 		 
-		 (format t "logging out~%")
+		 (format t "disconnecting from server~%")
 		 (finish-output)
 		 (send-message (make-disconnect-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*)))))
 	  (disconnect-from-server))))))
