@@ -30,16 +30,20 @@
   ((name 
     :initarg :name
     :accessor name)
-   (id :type integer
-       :initform (make-client-id)
-       :accessor client-id)
-   (entity-id)
+   (client-id 
+    :type integer
+    :initform (make-client-id)
+    :accessor client-id)
+   (entity-id
+    :accessor entity-id)
    (hand-shaken)
+   (connected-p)
    (synced-p)
    (ready-p)
    (last-seen-command-time)
    (delta-to-first-tick)
-   (last-agreed-status)
+   (last-agreed-status
+    :accessor last-agreed-status)
    (first-delta-set-p)
    (channel
     :initarg :channel

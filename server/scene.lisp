@@ -8,8 +8,10 @@
 (defclass scene ()
   ((entities
     :initform (make-hash-table))
-   (hit-records)
-   (next-available-id)
+   (hit-records
+    :initform (make-hash-table))
+   (next-available-entity-id
+    :initform 1)
    (current-world-state
     :initform (make-world-state)
     :accessor current-world-state)
@@ -21,8 +23,8 @@
 
 ;; add entity for client and returns entity id
 (defmethod add ((self scene) owner color)
-    (with-slots (entities current-world-state) self
-    (let ((entity (make-instance 'entity :color color)))
+  (with-slots (entities next-available-entity-id current-world-state) self
+    (let ((entity (make-entity owner next-available-entity-id color)))
       (setf (gethash owner entities) entity)
       (setf (world-state-entities current-world-state) (append (world-state-entities current-world-state) (list (status entity)))))
     (incf (world-state-entity-count current-world-state))))

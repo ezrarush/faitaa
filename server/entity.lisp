@@ -4,7 +4,7 @@
   current-input-state
   last-updated
   owner
-  id
+  entity-id
   (pos (sb-cga:vec 300.0 300.0 0.0))
   (vel (sb-cga:vec 0.0 0.0 0.0))
   (in-air-p t)
@@ -52,3 +52,9 @@
 (defmethod set-input-state-at ((self entity) time))
 (defmethod set-status ((self entity) entity-status))
 (defmethod hit ((self entity) left top time))
+
+(defun make-entity (owner entity-id color)
+  (let ((entity (make-instance 'entity :color color))
+	(status (make-entity-status :owner owner :entity-id entity-id)))
+    (setf (status entity) status)
+    entity))
