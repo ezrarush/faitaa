@@ -40,7 +40,7 @@
 	 (sdl2:with-event-loop (:method :poll)
 	   (:idle
 	    ()
-	    (read-message)
+	    (read-messages)
 	    (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
 	    (when (>= *delta-time* (tick-time *game-state*))
 	      (incf *last-time* (tick-time *game-state*))

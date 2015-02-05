@@ -39,4 +39,4 @@ sbcl --load run-client-two.lisp
 
 #References
 
-[Online multiplayer proof-of-concept](https://y4pp.wordpress.com/2014/06/04/online-multiplayer-proof-of-concept/)
+[Online multiplayer proof-of-concept](https://github.com/andras-szabo/online-multiplayer-proof-of-concept)

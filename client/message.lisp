@@ -14,10 +14,10 @@
   (userial:with-buffer message
     (userial:buffer-rewind)
     (ecase (userial:unserialize :server-opcode)
-      (:welcome     (handle-welcome-message message))
+      (:handshake     (handle-handshake-message message))
       (:world-state (handle-world-state-message message)))))
 
-(defun handle-welcome-message (message)
+(defun handle-handshake-message (message)
   (userial:with-buffer message
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 client-id)
 			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield)
@@ -29,22 +29,22 @@
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 data)
 			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield))))
 
-(defun make-login-message (name)
+(defun make-first-contact-message (name)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :client-opcode :login
+    (userial:serialize* :client-opcode :first-contact
 			:string name)))
 
-(defun make-input-message (sequence ack ack-bitfield)
+(defun make-event-message (sequence ack ack-bitfield)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :client-opcode :input
+    (userial:serialize* :client-opcode :event
 			:uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield)))
 
-(defun make-logout-message (sequence ack ack-bitfield)
+(defun make-disconnect-message (sequence ack ack-bitfield)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :client-opcode :logout
+    (userial:serialize* :client-opcode :disconnect
 			:uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
-			:int32 *client-id*)))
+			:int32 (client-id *game-state*))))

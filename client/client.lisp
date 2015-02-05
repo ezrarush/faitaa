@@ -77,7 +77,7 @@
 			 (:title-screen
 			  (format t "sending login message to server~%")
 			  (finish-output)
-			  (send-message (make-login-message name)))
+			  (send-message (make-first-contact-message name)))
 			 (:game-play)
 			 (:end-score)))
 		      
@@ -104,7 +104,7 @@
 		       (when (>= *delta-time* (tick-time *game-state*))
 			 (incf *last-time* (tick-time *game-state*))
 			 (when (client-id *game-state*) 
-			   (send-message (make-input-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*))))
+			   (send-message (make-event-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*))))
 			 (network-engine:update-metrics *channel*))
 		       (render-scene)
 		       (sdl2:gl-swap-window win))
@@ -113,5 +113,5 @@
 		 
 		 (format t "logging out~%")
 		 (finish-output)
-		 (send-message (make-logout-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*)))))
+		 (send-message (make-disconnect-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*)))))
 	  (disconnect-from-server))))))

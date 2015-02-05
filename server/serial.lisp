@@ -1,7 +1,7 @@
 (in-package #:faitaa-server)
 
 (userial:make-enum-serializer :client-opcode
-                      (:login :input :logout))
+                      (:first-contact :event :disconnect))
 
 (userial:make-enum-serializer :server-opcode
-                      (:welcome :world-state))
+                      (:handshake :world-state))
