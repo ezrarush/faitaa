@@ -21,13 +21,14 @@
    (past-world-states)
    (hit-queue)))
 
-;; add entity for client and returns entity id
+;; add entity for client and returns entity-id
 (defmethod add ((self scene) owner color)
   (with-slots (entities next-available-entity-id current-world-state) self
     (let ((entity (make-entity owner next-available-entity-id color)))
-      (setf (gethash owner entities) entity)
+      (setf (gethash next-available-entity-id entities) entity)
       (setf (world-state-entities current-world-state) (append (world-state-entities current-world-state) (list (status entity)))))
-    (incf (world-state-entity-count current-world-state))))
+    (incf (world-state-entity-count current-world-state))
+    (- (incf next-available-entity-id) 1)))
 
 (defmethod update-world-at ((self scene) time))
 (defmethod rewind-world-to ((self scene) time))

@@ -1,4 +1,4 @@
-(in-package #:faitta-server)
+(in-package #:faitaa-server)
 
 (defstruct input-state
   (left-p nil)
@@ -14,10 +14,10 @@
   input)
 
 (defstruct isc
-  input-state-changes
+  (input-state-changes (make-array 20))
   (item-count 0)
   (max-items 20)
-  isc-count)
+  (isc-count (make-hash-table)))
 
 (defun changes-for-others (id)
   

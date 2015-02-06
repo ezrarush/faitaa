@@ -27,6 +27,7 @@
 			:components ((:file "package")
 				     (:file "serial")
 				     (:file "message")
+				     (:file "input-state")
 				     (:file "client-database")
 				     (:file "entity")
 				     (:file "world-state")

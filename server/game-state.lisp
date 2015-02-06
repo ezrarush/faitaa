@@ -12,7 +12,10 @@
    (current-time)
    (last-tick-time)
    (history)
-   (isc) ; for keeping track of input changes in the latest tick
+   (isc
+    :initform (make-isc)
+    :accessor isc
+    ) ; for keeping track of input changes in the latest tick
    (current-world-state
     :accessor current-world-state)
    (previous-world-state

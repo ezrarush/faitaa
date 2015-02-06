@@ -43,6 +43,7 @@
    (last-seen-command-time)
    (delta-to-first-tick)
    (last-agreed-status
+    :initform (make-entity-status)
     :accessor last-agreed-status)
    (first-delta-set-p)
    (channel

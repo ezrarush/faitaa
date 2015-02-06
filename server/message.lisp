@@ -32,10 +32,10 @@
 	    (channel (network-engine:make-channel *current-remote-host* *current-remote-port*)))
 	(setf (channel client) channel)  
 	(send-message channel (make-handshake-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (client-id client)))
-	(setf (entity-id client) (add (scene *game-state*) client :red))
-	;; (setf (id (last-agreed-status client)) (client-id client))
-	;; (setf (owner (last-agreed-status client)) (client-id client))
-	;; mISC.mIscCount[i] = 0; // setting up input change records
+	(setf (entity-id client) (add (scene *game-state*) (client-id client) :red))
+	(setf (entity-status-entity-id (last-agreed-status client)) (entity-id client))
+	(setf (entity-status-owner (last-agreed-status client)) (client-id client))
+	(setf (gethash (client-id client) (isc-isc-count (isc *game-state*))) 0) ;;mISC.mIscCount[i] = 0; // setting up input change records
 	(format t "~a (client-id: ~a) has connected.~%" name (client-id client))
 	(finish-output))))
   (when (= (hash-table-count *clients*) 2)
