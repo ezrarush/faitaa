@@ -49,6 +49,6 @@
 
 (defun tick ()
   (loop for channel being the hash-value in network-engine:*channels* do
-       (send-message channel (make-world-state-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (random 10)))
+       (send-message channel (make-world-state-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel)))
        (network-engine:update-metrics channel)))
 

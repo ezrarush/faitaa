@@ -10,7 +10,7 @@
   (last-updated 0)
   (owner 0)
   (id 0)
-  (pos (sb-cga:vec 300.0 300.0 0.0))
+  (pos (sb-cga:vec 5.0 5.0 1.0))
   (vel (sb-cga:vec 0.0 0.0 0.0))
   (in-air-p t)
   (attacking-p nil)

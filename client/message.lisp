@@ -26,7 +26,9 @@
 
 (defun handle-world-state-message (message)
   (userial:with-buffer message
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 data)
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 entity-count)
+			      (format t "received world state with entity-count: ~a~%" entity-count)
+			      (finish-output)
 			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield))))
 
 (defun make-first-contact-message (name)

@@ -38,12 +38,14 @@
 	(setf (gethash (client-id client) (isc-isc-count (isc *game-state*))) 0) ;;mISC.mIscCount[i] = 0; // setting up input change records
 	(format t "~a (client-id: ~a) has connected.~%" name (client-id client))
 	(finish-output))))
-  (when (= (hash-table-count *clients*) 2)
-    (format t "2 players found, starting match~%")
-    (finish-output)  
-    ;; (setf (current-mode *game-state*) :match)
-    (loop for channel being the hash-value in network-engine:*channels* do
-	 (send-message channel (make-match-begin-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel))))))
+  
+  ;; (when (= (hash-table-count *clients*) 2)
+  ;;   (format t "2 players found, starting match~%")
+  ;;   (finish-output)  
+  ;;   ;; (setf (current-mode *game-state*) :match)
+  ;;   (loop for channel being the hash-value in network-engine:*channels* do
+  ;; 	 (send-message channel (make-match-begin-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel)))))
+  )
 
 (defun handle-event-message (message)
   (userial:with-buffer message 
@@ -76,10 +78,10 @@
 			:uint32 ack
 			:uint32 ack-bitfield)))
 
-(defun make-world-state-message (sequence ack ack-bitfield data)
+(defun make-world-state-message (sequence ack ack-bitfield)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :world-state
 			:uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
-			:int32 data)))
+			:int32 (world-state-entity-count (current-world-state *game-state*)))))

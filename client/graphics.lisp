@@ -48,10 +48,18 @@
       ;;  (text-billboard-render waiting-message (get-ortho-projection-transform) (get-ortho-model-view-transform)))
       
       (:game-play
-       (set-ortho-world-pos (sb-cga:vec 5.0 5.0 1.0))
-       (set-ortho-scale (sb-cga:vec 20.0 20.0 1.0))
-       (update-ortho-pipeline camera proj-info)	 
-       (circle-render circle (get-ortho-projection-transform) (get-ortho-model-view-transform) (sb-cga:vec 1.0 0.0 0.0)))
+       
+       (loop for entity being the hash-value in (entities (scene *game-state*)) do
+	    (set-ortho-world-pos (entity-status-pos (status entity)))
+	    (set-ortho-scale (sb-cga:vec 20.0 20.0 1.0))
+	    (update-ortho-pipeline camera proj-info)	 
+	    (circle-render circle (get-ortho-projection-transform) (get-ortho-model-view-transform) (sb-cga:vec 1.0 0.0 0.0)))
+       
+       ;; (set-ortho-world-pos (sb-cga:vec 5.0 5.0 1.0))
+       ;; (set-ortho-scale (sb-cga:vec 20.0 20.0 1.0))
+       ;; (update-ortho-pipeline camera proj-info)	 
+       ;; (circle-render circle (get-ortho-projection-transform) (get-ortho-model-view-transform) (sb-cga:vec 1.0 0.0 0.0))
+       )
       (:end-score)))
     
   (defun get-3d-ray-under-mouse (x y)

@@ -8,7 +8,8 @@
    (last-agreed-command-time
     :initform 0)
    (entities
-    :initform (make-hash-table))
+    :initform (make-hash-table)
+    :accessor entities)
    (player-last-update)
    (past-world-states)
    (ws-archive-length
