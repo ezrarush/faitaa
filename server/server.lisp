@@ -43,8 +43,12 @@
 	    (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
 	    (when (>= *delta-time* (tick-time *game-state*))
 	      (incf *last-time* (tick-time *game-state*))
-	      (loop for channel being the hash-value in network-engine:*channels* do
-		   (send-message channel (make-world-state-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (random 10)))
-		   (network-engine:update-metrics channel))))
+	      (tick)))
 	   (:quit () t))
       (stop-server))))
+
+(defun tick ()
+  (loop for channel being the hash-value in network-engine:*channels* do
+       (send-message channel (make-world-state-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (random 10)))
+       (network-engine:update-metrics channel)))
+

@@ -1,14 +1,14 @@
-(in-package #:faitta-server)
+(in-package #:faitaa-server)
 
 (defstruct event
+  (time 0)
   last-world-state
-  time
-  type		   ; nullevent, spawn, move, staterefresh, hit
-  sequence
+  (type :null-event)		   ; :nullevent, :spawn, :move, :staterefresh, :hit
+  (sequence 0)
   input
   owner
   entity-id
-  left
-  top
+  (left nil)
+  (top nil)
   target-status
   (delta-since-lac 0))

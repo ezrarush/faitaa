@@ -32,7 +32,7 @@
 	    (channel (network-engine:make-channel *current-remote-host* *current-remote-port*)))
 	(setf (channel client) channel)  
 	(send-message channel (make-handshake-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (client-id client)))
-	(setf (entity-id client) (add (scene *game-state*) (client-id client) :red))
+	(setf (entity-id client) (add-entity (scene *game-state*) (client-id client) :red))
 	(setf (entity-status-entity-id (last-agreed-status client)) (entity-id client))
 	(setf (entity-status-owner (last-agreed-status client)) (client-id client))
 	(setf (gethash (client-id client) (isc-isc-count (isc *game-state*))) 0) ;;mISC.mIscCount[i] = 0; // setting up input change records
@@ -48,6 +48,7 @@
 (defun handle-event-message (message)
   (userial:with-buffer message 
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield)
+			      ;; (add-event (history *game-state*) event)
 			      (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield))))
 
 (defun handle-disconnect-message (message)
@@ -57,7 +58,7 @@
 			      (assert client-id)
 			      (let ((client (lookup-client-by-id client-id)))
 				(remove-client client)
-				(format t "~a (client-id: ~a) has disconnected.~%" client-id)
+				(format t "~a (client-id: ~a) has disconnected.~%" (name client) client-id)
 				(finish-output)))))
 
 (defun make-handshake-message (sequence ack ack-bitfield client-id)

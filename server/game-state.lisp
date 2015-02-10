@@ -11,7 +11,9 @@
    (clock)
    (current-time)
    (last-tick-time)
-   (history)
+   (history
+    :initform (make-instance 'history)
+    :accessor history)
    (isc
     :initform (make-isc)
     :accessor isc

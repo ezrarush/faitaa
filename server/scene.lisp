@@ -22,7 +22,7 @@
    (hit-queue)))
 
 ;; add entity for client and returns entity-id
-(defmethod add ((self scene) owner color)
+(defmethod add-entity ((self scene) owner color)
   (with-slots (entities next-available-entity-id current-world-state) self
     (let ((entity (make-entity owner next-available-entity-id color)))
       (setf (gethash next-available-entity-id entities) entity)

@@ -25,10 +25,12 @@
 				     (:file "client")))
 	       (:module server
 			:components ((:file "package")
+				     (:file "client-database")
 				     (:file "serial")
 				     (:file "message")
 				     (:file "input-state")
-				     (:file "client-database")
+				     (:file "event")
+				     (:file "history")
 				     (:file "entity")
 				     (:file "world-state")
 				     (:file "scene")
