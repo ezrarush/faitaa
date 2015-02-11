@@ -38,6 +38,10 @@
 	(setf (gethash (client-id client) (isc-isc-count (isc *game-state*))) 0) ;;mISC.mIscCount[i] = 0; // setting up input change records
 	(format t "~a (client-id: ~a) has connected.~%" name (client-id client))
 	(finish-output))))
+
+  ;; start ticking when a client connects
+  (when (= (hash-table-count *clients*) 1)
+    (setf (last-tick-time *game-state*) (sdl2:get-ticks)))
   
   ;; (when (= (hash-table-count *clients*) 2)
   ;;   (format t "2 players found, starting match~%")

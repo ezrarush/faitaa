@@ -9,8 +9,10 @@
    (everyone-synced-p)
    (sync-attempted-p)
    (clock)
-   (current-time)
-   (last-tick-time)
+   (current-time
+    :accessor current-time)
+   (last-tick-time
+    :accessor last-tick-time)
    (history
     :initform (make-instance 'history)
     :accessor history)
@@ -19,10 +21,10 @@
     :accessor isc
     ) ; for keeping track of input changes in the latest tick
    (current-world-state
-    :initform (make-world-state)
+    ;; :initform (make-world-state)
     :accessor current-world-state)
    (previous-world-state
-    :initform (make-world-state)
+    ;; :initform (make-world-state)
     :accessor previous-world-state)
    (previous-hit-queue)
    (out-message)
@@ -49,7 +51,7 @@
    (sent-timeout
     :initform 4000)
    (tick-time
-    :initform 50
+    :initform (/ 1000 20)
     :reader tick-time)
    (history-timeout
     :initform 4000)

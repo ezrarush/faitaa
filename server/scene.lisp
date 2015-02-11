@@ -30,8 +30,15 @@
     (incf (world-state-entity-count current-world-state))
     (- (incf next-available-entity-id) 1)))
 
-(defmethod update-world-at ((self scene) time))
-(defmethod rewind-world-to ((self scene) time))
+(defmethod update-world-at ((self scene) time)
+  (with-slots (current-world-state) self
+    
+    )
+  
+  )
+(defmethod rewind-world-to ((self scene) time)
+  
+  )
 (defmethod update-archive-at ((self scene) time))
 (defmethod get-status ((self scene) id))
 (defmethod update-previous-world-state ((self scene)))

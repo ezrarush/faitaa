@@ -4,9 +4,6 @@
 (defvar *current-remote-host*)
 (defvar *current-remote-port*)
 
-(defvar *last-time*)
-(defvar *delta-time*)
-
 (defun start-server (server-ip port)
   (assert (not *server-socket*))
   (setf *server-socket*
@@ -31,40 +28,48 @@
     (finish-output)
     (start-server server-ip port)
     
-   (setf (current-world-state *game-state*) (current-world-state (scene *game-state*))) ;; necessary???
-   (setf (previous-world-state *game-state*) (previous-world-state (scene *game-state*))) ;;necessary ???
+   (setf (current-world-state *game-state*) (current-world-state (scene *game-state*))) ;; server-state and scene share same world-state object
+   (setf (previous-world-state *game-state*) (previous-world-state (scene *game-state*))) 
     
-    (setf *last-time* (sdl2:get-ticks))
     (unwind-protect
 	 (sdl2:with-event-loop (:method :poll)
 	   (:idle
 	    ()
+	    
 	    (read-messages)
-	    (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
-	    (when (>= *delta-time* (tick-time *game-state*))
-	      (tick)
-	      (incf *last-time* (tick-time *game-state*))))
+	    
+	    (when (> (hash-table-count *clients*) 0)
+	      (setf (current-time *game-state*) (sdl2:get-ticks))
+	      (loop while (>= (- (current-time *game-state*) (last-tick-time *game-state*)) (tick-time *game-state*)) do
+		   (incf (last-tick-time *game-state*) (tick-time *game-state*))
+		   (tick (last-tick-time *game-state*))
+		 ;; (send-stuff)
+		   )))
 	   (:quit () t))
       (stop-server))))
 
-(defun tick ()
+(defun tick (time)
   
   (let* ((update-ptr (world-state-time (current-world-state *game-state*)))
 	 (next-event (get-next-event (history *game-state*) (- update-ptr 1)))
 	 (next-frame-time (+ update-ptr (frame-time-in-ms *game-state*)))
 	 (last-frame-time 0)
 	 (first-ws-passed nil)
-	 (start-of-last-tick (- (sdl2:get-ticks) (tick-time *game-state*))))
+	 (start-of-last-tick (- time (tick-time *game-state*))))
     
-    ;; (loop while (or (<= next-frame-time (sdl2:get-ticks)) 
-    ;; 		    (and next-event 
-    ;; 			 (<= (event-time next-event) (sdl2:get-ticks)))) do
-    ;; 	 (if (or (eq (event-type next-event) :null-event) (< next-frame-time (event-time next-event)))
-    ;; 	   (progn
-    ;; 	     (format t "no events to deal with before reaching the next frame~%"))
-    ;; 	   (progn
-    ;; 	     (format t "there's an event we have to deal with befor the end of this frame~%"))))
-    )
+    (loop while (or (<= next-frame-time time) 
+		    (and next-event 
+			 (<= (event-time next-event) time))) do
+	 (if (or (not next-event) (< next-frame-time (event-time next-event)))
+	   (progn
+	     ;; (format t "no events to deal with before reaching the next frame~%")
+	     (update-world-at (scene *game-state*) next-frame-time)
+	     (setf last-frame-time next-frame-time)
+	     (incf next-frame-time (frame-time-in-ms *game-state*)))
+	   (progn
+	     (format t "there's an event we have to deal with before the end of this frame~%")
+	     (setf update-ptr (event-time next-event))
+	     (setf next-event (get-next-event (history *game-state*) update-ptr))))))
 
   (loop for channel being the hash-value in network-engine:*channels* do
        (send-message channel (make-world-state-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel)))

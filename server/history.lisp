@@ -35,7 +35,6 @@
 
 (defmethod get-next-event ((self history) deadline)
   (with-slots (data) self
-    (loop for event being the hash-key in data do
-	 (when (> key deadline) (return (gethash key data))))))
+    (gethash (loop for time being the hash-key in data thereis (> time deadline)) data)))
 
 (defmethod cleanup ((self history) deadline))
