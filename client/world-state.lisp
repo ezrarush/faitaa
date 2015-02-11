@@ -2,5 +2,5 @@
 
 (defstruct world-state
   (entity-count 0)
-  entities
+  (entities (list))
   (time 0))

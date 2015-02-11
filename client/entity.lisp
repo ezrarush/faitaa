@@ -6,10 +6,10 @@
   (phase-count 0))
 
 (defstruct entity-status
-  (current-input-state)
-  (last-updated 0)
-  (owner 0)
-  (id 0)
+  current-input-state
+  last-updated
+  owner
+  entity-id
   (pos (sb-cga:vec 5.0 5.0 1.0))
   (vel (sb-cga:vec 0.0 0.0 0.0))
   (in-air-p t)
@@ -17,7 +17,7 @@
   (blocking-p nil)
   (hit-already-p nil) ;; did we hit anyone with this particular attk? if so, we must not hit again
   (attack-time 0)
-  (state) ; idle, walking, jumping, falling, hittingOnGround, hittingInAir, blocking, beingHit 
+  state ; idle, walking, jumping, falling, hittingOnGround, hittingInAir, blocking, beingHit 
   (state-ptr 0) ; we've been in this particular state for state-ptr ms ???????????????????????????????? 
   (hit-needs-release-p nil) ; new hit event can only register if this is false
   )
@@ -44,7 +44,8 @@
    (sprite)
    (anim)
    (shape)
-   (color)
+   (color
+    :initarg :color)
    (acceleration
     :initform 800.0)
    (air-acceleration
@@ -56,7 +57,7 @@
    (friction
     :initform 20)
    (screen-size
-    :initform (sb-cga:vec 640.0 480.0))
+    :initform (sb-cga:vec 640.0 480.0 0.0))
    (facing-right-p
     :initform t)
    (prev-facing-right
@@ -101,3 +102,9 @@
 (defmethod set-up-animations ((self entity)))
 (defmethod can-block-p ((self entity)))
 (defmethod can-attack-p ((self entity)))
+
+(defun make-entity (owner entity-id color)
+  (let ((entity (make-instance 'entity :color color))
+	(entity-status (make-entity-status :owner owner :entity-id entity-id)))
+    (setf (status entity) entity-status)
+    entity))

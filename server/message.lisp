@@ -84,4 +84,9 @@
 			:uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
-			:int32 (world-state-entity-count (current-world-state *game-state*)))))
+			:int32 (world-state-entity-count (current-world-state *game-state*)))
+    (loop for entity-status in (world-state-entities (current-world-state *game-state*)) do
+	 (userial:serialize* :uint32 (entity-status-entity-id entity-status)
+			     :float32 (aref  (entity-status-pos entity-status) 0)
+			     :float32 (aref (entity-status-pos entity-status) 1)))
+    (userial:get-buffer)))

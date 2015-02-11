@@ -27,9 +27,12 @@
 (defun handle-world-state-message (message)
   (userial:with-buffer message
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 entity-count)
-			      (format t "received world state with entity-count: ~a~%" entity-count)
-			      (finish-output)
-			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield))))
+			      ;; (network-engine:process-received-packet *channel* sequence ack ack-bitfield)
+			      (let ((ws (make-world-state)))
+				(loop repeat entity-count do
+				     (userial:unserialize-let* (:uint32 entity-id :float32 x :float32 y)
+							       (push (make-entity-status :owner entity-id :entity-id entity-id :pos (sb-cga:vec x y 1.0)) (world-state-entities ws))))
+				(set-world-state (scene *game-state*) ws)))))
 
 (defun make-first-contact-message (name)
   (userial:with-buffer (userial:make-buffer)

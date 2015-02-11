@@ -18,21 +18,27 @@
 
 
 (defmethod set-world-state ((self scene) world-state)
-					; If an entity not owned by us exists, we set its status and that's that.
-					; If it doesn't exist, whether or not it's ours, we create the entity, and thereby set its status.
-					; But, importantly, we don't touch, at all, our own entity, if it already exists.
+					; If an entit exists, we set its status.
+					; If it doesn't exist, we create the entity, and thereby set its status.
   (with-slots (entities) self
-    (loop for entity in (world-state-entities world-state) do
-	 (if (multiple-value-bind (object exists) (gethash (id entity) entities)
+    (loop for entity-status in (world-state-entities world-state) do
+	 (if (multiple-value-bind (object exists) (gethash (entity-status-entity-id entity-status) entities)
 	       exists)
-	     (unless (eq (id entity) (client-id *game-state*))
-	       ;; set the status
-	       )
+	     (setf (status (gethash (entity-status-entity-id entity-status) entities)) entity-status)
+	     ;; (unless (eq (entity-status-entity-id entity) (client-id *game-state*))
+	     ;;   ;; set the status
+	     ;;   )
 	     (progn
-	       (format t "creating entity with id: ~a~%" (id entity))
-	       (setf (gethash (id entity) entities) entity)
-	       (when (eq (id entity) (client-id *game-state*))
-		 (setf last-agreed-client-status (status entity))))))))
+	       (format t "creating entity with id: ~a~%" (entity-status-entity-id entity-status))
+	       
+	       (setf (gethash (entity-status-entity-id entity-status) entities) 
+		     
+		     (make-entity (entity-status-owner entity-status) 
+				  (entity-status-entity-id entity-status) 
+				  "red"))
+	       ;; (when (eq (id entity-status) (client-id *game-state*))
+	       ;; 	 (setf last-agreed-client-status (status entity-status)))
+	       )))))
 
 (defmethod partial-rewind-to ((self scene) time))
 (defmethod save-player-state ((self scene)))
