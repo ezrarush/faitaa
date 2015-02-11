@@ -19,8 +19,10 @@
     :accessor isc
     ) ; for keeping track of input changes in the latest tick
    (current-world-state
+    :initform (make-world-state)
     :accessor current-world-state)
    (previous-world-state
+    :initform (make-world-state)
     :accessor previous-world-state)
    (previous-hit-queue)
    (out-message)
@@ -58,6 +60,7 @@
    (wsa-length
     :initform 6000)
    (frame-time-in-ms
-    :initform (/ 1000 60))))
+    :initform (/ 1000 60)
+    :reader frame-time-in-ms)))
 
 (defvar *game-state* (make-instance 'game-state))

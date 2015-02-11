@@ -6,5 +6,8 @@
 (userial:make-enum-serializer :server-opcode
                       (:handshake :world-state))
 
-(userial:make-accessor-serializer (:game-state-from-server begin-state (make-game-state))
-  :int32 player-id )
+(userial:make-enum-serializer :event-type
+                      (:move :hit :state-refresh))
+
+;; (userial:make-accessor-serializer (:game-state-from-server begin-state (make-game-state))
+;;   :int32 player-id )

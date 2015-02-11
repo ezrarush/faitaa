@@ -47,11 +47,17 @@
   ;; 	 (send-message channel (make-match-begin-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel)))))
   )
 
-(defun handle-event-message (message)
+ (defun handle-event-message (message)
   (userial:with-buffer message 
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield)
-			      ;; (add-event (history *game-state*) event)
-			      (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield))))
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :event-type type :uint32 time :uint32 entity-id :boolean left-p :boolean right-p :boolean up-p :boolean attack-p :boolean block-p)
+      
+      ;; (sync time owner)
+      (add-event (history *game-state*) (make-event :time time 
+						    :type type 
+						    :input (make-input-state :left-p left-p :right-p right-p :up-p up-p :attack-p attack-p :block-p block-p)
+						    :entity-id entity-id))
+      ;; (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield)
+      )))
 
 (defun handle-disconnect-message (message)
   (userial:with-buffer message 

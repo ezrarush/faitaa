@@ -5,3 +5,6 @@
 
 (userial:make-enum-serializer :server-opcode
                       (:handshake :world-state))
+
+(userial:make-enum-serializer :event-type
+                      (:move :hit :state-refresh))

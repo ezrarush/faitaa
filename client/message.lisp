@@ -39,12 +39,20 @@
     (userial:serialize* :client-opcode :first-contact
 			:string name)))
 
-(defun make-event-message (sequence ack ack-bitfield)
+(defun make-event-message (sequence ack ack-bitfield event)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :client-opcode :event
 			:uint32 sequence
 			:uint32 ack
-			:uint32 ack-bitfield)))
+			:uint32 ack-bitfield
+			:event-type :move
+			:uint32 (event-time event)
+			:uint32 (event-entity-id event)
+			:boolean (input-state-left-p (event-input event))
+			:boolean (input-state-right-p (event-input event))
+			:boolean (input-state-up-p (event-input event))
+			:boolean (input-state-attack-p (event-input event))
+			:boolean (input-state-block-p (event-input event)))))
 
 (defun make-disconnect-message (sequence ack ack-bitfield)
   (userial:with-buffer (userial:make-buffer)

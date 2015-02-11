@@ -9,7 +9,7 @@
     :initform (make-hash-table))
    (null-event)))
 
-(defmethod add ((self history) event)
+(defmethod add-event ((self history) event)
   (with-slots (data oldest-event-this-tick youngest-event-this-tick) self
     ;; if time slot already has an event, increase time by 1 ms and try to add again
     (if (multiple-value-bind (entry exists) (gethash (event-time event) data)

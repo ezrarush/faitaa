@@ -57,5 +57,4 @@
 (defmethod rewind-world-to ((self scene) time))
 (defmethod set-player-status ((self scene) entity-status))
 (defmethod handle ((self scene) event))
-;; (defmethod render ((self scene) render-window))
 (defmethod archive-clean-up ((self scene)))

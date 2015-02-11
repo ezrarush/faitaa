@@ -42,13 +42,32 @@
 	    (read-messages)
 	    (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
 	    (when (>= *delta-time* (tick-time *game-state*))
-	      (incf *last-time* (tick-time *game-state*))
-	      (tick)))
+	      (tick)
+	      (incf *last-time* (tick-time *game-state*))))
 	   (:quit () t))
       (stop-server))))
 
 (defun tick ()
+  
+  (let* ((update-ptr (world-state-time (current-world-state *game-state*)))
+	 (next-event (get-next-event (history *game-state*) (- update-ptr 1)))
+	 (next-frame-time (+ update-ptr (frame-time-in-ms *game-state*)))
+	 (last-frame-time 0)
+	 (first-ws-passed nil)
+	 (start-of-last-tick (- (sdl2:get-ticks) (tick-time *game-state*))))
+    
+    ;; (loop while (or (<= next-frame-time (sdl2:get-ticks)) 
+    ;; 		    (and next-event 
+    ;; 			 (<= (event-time next-event) (sdl2:get-ticks)))) do
+    ;; 	 (if (or (eq (event-type next-event) :null-event) (< next-frame-time (event-time next-event)))
+    ;; 	   (progn
+    ;; 	     (format t "no events to deal with before reaching the next frame~%"))
+    ;; 	   (progn
+    ;; 	     (format t "there's an event we have to deal with befor the end of this frame~%"))))
+    )
+
   (loop for channel being the hash-value in network-engine:*channels* do
        (send-message channel (make-world-state-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel)))
-       (network-engine:update-metrics channel)))
+       ;; (network-engine:update-metrics channel)
+       ))
 

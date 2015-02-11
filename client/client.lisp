@@ -92,9 +92,12 @@
 						  :time (sdl2:get-ticks)
 						  :entity-id (client-id *game-state*)
 						  :owner (client-id *game-state*))))
-			   (add (history *game-state*) event)
-			   ; set player state 
-			   ;; (set-client-input-state-at (scene *game-state*) (event-input event) (event-time event))
+			   (add-event (history *game-state*) event)
+			   ; set player state 			   
+			   (set-client-input-state-at (scene *game-state*) (event-input event) (event-time event))
+
+			   (send-message (make-event-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*) event))
+			   ;; (network-engine:update-metrics *channel*)
 			   ))
 		       
 		       (read-messages)
@@ -104,8 +107,8 @@
 		       (when (>= *delta-time* (tick-time *game-state*))
 			 (incf *last-time* (tick-time *game-state*))
 			 (when (client-id *game-state*) 
-			   (send-message (make-event-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*))))
-			 (network-engine:update-metrics *channel*))
+			   )
+)
 		       (render-scene)
 		       (sdl2:gl-swap-window win))
 		      

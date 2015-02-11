@@ -7,7 +7,8 @@
     :initform 0)
    (data
     :initform (make-hash-table))
-   (null-event)))
+   ;; (null-event)
+   ))
 
 (defmethod reset-oldest-event ((self history)))
 (defmethod update ((self history) time event))
@@ -32,5 +33,9 @@
 	  (format t "new event added to history:~%~a~%" event)
 	  (finish-output)))))
 
-(defmethod get-next-event ((self history) deadline))
+(defmethod get-next-event ((self history) deadline)
+  (with-slots (data) self
+    (loop for event being the hash-key in data do
+	 (when (> key deadline) (return (gethash key data))))))
+
 (defmethod cleanup ((self history) deadline))
