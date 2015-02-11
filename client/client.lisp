@@ -40,7 +40,7 @@
 		      (:keydown
 		       (:keysym keysym)
 		       (let ((scancode (sdl2:scancode-value keysym)))
-			 (ecase (current-screen *game-state*)
+			 (ecase (current-screen *client-state*)
 			   (:title-screen)
 			   (:game-play
 			    (cond
@@ -57,7 +57,7 @@
 		       (:keyup
 			(:keysym keysym)
 			(let ((scancode (sdl2:scancode-value keysym)))
-			 (ecase (current-screen *game-state*)
+			 (ecase (current-screen *client-state*)
 			   (:title-screen)
 			   (:game-play
 			    (cond
@@ -73,7 +73,7 @@
 		       
 		      (:mousebuttondown
 		       (:x x :y y :button button)
-		       (ecase (current-screen *game-state*)
+		       (ecase (current-screen *client-state*)
 			 (:title-screen
 			  (format t "connecting to server~%")
 			  (finish-output)
@@ -85,16 +85,16 @@
 		       ()
 		       
 		       ; input check
-		       (unless (equalp current-input-state (input-state *game-state*))
-			 (setf (input-state *game-state*) (copy-structure current-input-state))
+		       (unless (equalp current-input-state (input-state *client-state*))
+			 (setf (input-state *client-state*) (copy-structure current-input-state))
 			 (let ((event (make-event :type :move 
 						  :input current-input-state 
 						  :time (sdl2:get-ticks)
-						  :entity-id (client-id *game-state*)
-						  :owner (client-id *game-state*))))
-			   (add-event (history *game-state*) event)
+						  :entity-id (client-id *client-state*)
+						  :owner (client-id *client-state*))))
+			   (add-event (history *client-state*) event)
 			   ; set player state 			   
-			   (set-client-input-state-at (scene *game-state*) (event-input event) (event-time event))
+			   (set-client-input-state-at (scene *client-state*) (event-input event) (event-time event))
 
 			   (send-message (make-event-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*) event))
 			   ;; (network-engine:update-metrics *channel*)
@@ -104,9 +104,9 @@
 		       
 		       ;; tick
 		       (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
-		       (when (>= *delta-time* (tick-time *game-state*))
-			 (incf *last-time* (tick-time *game-state*))
-			 (when (client-id *game-state*) 
+		       (when (>= *delta-time* (tick-time *client-state*))
+			 (incf *last-time* (tick-time *client-state*))
+			 (when (client-id *client-state*) 
 			   )
 )
 		       (render-scene)

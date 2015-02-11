@@ -21,8 +21,8 @@
   (userial:with-buffer message
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 client-id)
 			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield)
-			      (setf (current-screen *game-state*) :game-play)
-			      (setf (client-id *game-state*) client-id))))
+			      (setf (current-screen *client-state*) :game-play)
+			      (setf (client-id *client-state*) client-id))))
 
 (defun handle-world-state-message (message)
   (userial:with-buffer message
@@ -32,7 +32,7 @@
 				(loop repeat entity-count do
 				     (userial:unserialize-let* (:uint32 entity-id :float32 x :float32 y)
 							       (push (make-entity-status :owner entity-id :entity-id entity-id :pos (sb-cga:vec x y 1.0)) (world-state-entities ws))))
-				(set-world-state (scene *game-state*) ws)))))
+				(set-world-state (scene *client-state*) ws)))))
 
 (defun make-first-contact-message (name)
   (userial:with-buffer (userial:make-buffer)
@@ -60,4 +60,4 @@
 			:uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
-			:int32 (client-id *game-state*))))
+			:int32 (client-id *client-state*))))

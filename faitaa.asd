@@ -20,12 +20,12 @@
 				     (:file "entity")
 				     (:file "world-state")
 				     (:file "scene")
-				     (:file "game-state")
+				     (:file "client-state")
 				     (:file "graphics")
 				     (:file "client")))
 	       (:module server
 			:components ((:file "package")
-				     (:file "client-database")
+				     (:file "client")
 				     (:file "serial")
 				     (:file "message")
 				     (:file "input-state")
@@ -34,6 +34,6 @@
 				     (:file "entity")
 				     (:file "world-state")
 				     (:file "scene")
-				     (:file "game-state")
+				     (:file "server-state")
 				     (:file "server")))))
 

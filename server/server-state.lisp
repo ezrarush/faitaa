@@ -1,6 +1,6 @@
 (in-package #:faitaa-server)
 
-(defclass game-state ()
+(defclass server-state ()
   ((pause
     :initform 5)
    (scene
@@ -65,4 +65,4 @@
     :initform (/ 1000 60)
     :reader frame-time-in-ms)))
 
-(defvar *game-state* (make-instance 'game-state))
+(defvar *server-state* (make-instance 'server-state))

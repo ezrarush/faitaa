@@ -1,6 +1,6 @@
 (in-package #:faitaa-client)
 
-(defclass game-state ()
+(defclass client-state ()
   ((client-id 
     :initform nil
     :initarg :client-id
@@ -98,4 +98,4 @@
    (frame-time-in-ms
     :initform (/ 1000 60))))
 
-(defvar *game-state* (make-instance 'game-state))
+(defvar *client-state* (make-instance 'client-state))

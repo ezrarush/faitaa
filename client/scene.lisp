@@ -25,7 +25,7 @@
 	 (if (multiple-value-bind (object exists) (gethash (entity-status-entity-id entity-status) entities)
 	       exists)
 	     (setf (status (gethash (entity-status-entity-id entity-status) entities)) entity-status)
-	     ;; (unless (eq (entity-status-entity-id entity) (client-id *game-state*))
+	     ;; (unless (eq (entity-status-entity-id entity) (client-id *client-state*))
 	     ;;   ;; set the status
 	     ;;   )
 	     (progn
@@ -36,7 +36,7 @@
 		     (make-entity (entity-status-owner entity-status) 
 				  (entity-status-entity-id entity-status) 
 				  "red"))
-	       ;; (when (eq (id entity-status) (client-id *game-state*))
+	       ;; (when (eq (id entity-status) (client-id *client-state*))
 	       ;; 	 (setf last-agreed-client-status (status entity-status)))
 	       )))))
 
@@ -50,7 +50,7 @@
 
 (defmethod set-client-input-state-at ((self scene) input-state time)
   (with-slots (entities) self
-    (set-input-state-at (gethash (client-id *game-state*) entities) input-state time)))
+    (set-input-state-at (gethash (client-id *client-state*) entities) input-state time)))
 
 (defmethod get-current-world-state ((self scene) time))
 (defmethod archive-current-world-state ((self scene) time))

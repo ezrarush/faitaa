@@ -32,21 +32,21 @@
 	    (channel (network-engine:make-channel *current-remote-host* *current-remote-port*)))
 	(setf (channel client) channel)  
 	(send-message channel (make-handshake-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (client-id client)))
-	(setf (entity-id client) (add-entity (scene *game-state*) (client-id client) :red))
+	(setf (entity-id client) (add-entity (scene *server-state*) (client-id client) :red))
 	(setf (entity-status-entity-id (last-agreed-status client)) (entity-id client))
 	(setf (entity-status-owner (last-agreed-status client)) (client-id client))
-	(setf (gethash (client-id client) (isc-isc-count (isc *game-state*))) 0) ;;mISC.mIscCount[i] = 0; // setting up input change records
+	(setf (gethash (client-id client) (isc-isc-count (isc *server-state*))) 0) ;;mISC.mIscCount[i] = 0; // setting up input change records
 	(format t "~a (client-id: ~a) has connected.~%" name (client-id client))
 	(finish-output))))
 
   ;; start ticking when a client connects
   (when (= (hash-table-count *clients*) 1)
-    (setf (last-tick-time *game-state*) (sdl2:get-ticks)))
+    (setf (last-tick-time *server-state*) (sdl2:get-ticks)))
   
   ;; (when (= (hash-table-count *clients*) 2)
   ;;   (format t "2 players found, starting match~%")
   ;;   (finish-output)  
-  ;;   ;; (setf (current-mode *game-state*) :match)
+  ;;   ;; (setf (current-mode *server-state*) :match)
   ;;   (loop for channel being the hash-value in network-engine:*channels* do
   ;; 	 (send-message channel (make-match-begin-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel)))))
   )
@@ -56,7 +56,7 @@
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :event-type type :uint32 time :uint32 entity-id :boolean left-p :boolean right-p :boolean up-p :boolean attack-p :boolean block-p)
       
       ;; (sync time owner)
-      (add-event (history *game-state*) (make-event :time time 
+      (add-event (history *server-state*) (make-event :time time 
 						    :type type 
 						    :input (make-input-state :left-p left-p :right-p right-p :up-p up-p :attack-p attack-p :block-p block-p)
 						    :entity-id entity-id))
@@ -94,8 +94,8 @@
 			:uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
-			:int32 (world-state-entity-count (current-world-state *game-state*)))
-    (loop for entity-status in (world-state-entities (current-world-state *game-state*)) do
+			:int32 (world-state-entity-count (current-world-state *server-state*)))
+    (loop for entity-status in (world-state-entities (current-world-state *server-state*)) do
 	 (userial:serialize* :uint32 (entity-status-entity-id entity-status)
 			     :float32 (aref  (entity-status-pos entity-status) 0)
 			     :float32 (aref (entity-status-pos entity-status) 1)))

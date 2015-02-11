@@ -33,7 +33,7 @@
     ;; GUI depth range (10, 1)
     ;; fields (-1,-10)
     
-    (ecase (current-screen *game-state*)
+    (ecase (current-screen *client-state*)
       (:title-screen
        
        (set-ortho-world-pos (sb-cga:vec 0.0 0.0 1.0))
@@ -49,7 +49,7 @@
       
       (:game-play
        
-       (loop for entity being the hash-value in (entities (scene *game-state*)) do
+       (loop for entity being the hash-value in (entities (scene *client-state*)) do
 	    (set-ortho-world-pos (entity-status-pos (status entity)))
 	    (set-ortho-scale (sb-cga:vec 20.0 20.0 1.0))
 	    (update-ortho-pipeline camera proj-info)	 
