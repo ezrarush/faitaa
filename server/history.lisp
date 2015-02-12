@@ -2,9 +2,11 @@
 
 (defclass history ()
   ((oldest-event-this-tick
-    :initform 0)
+    :initform 0
+    :reader oldest-event-this-tick)
    (youngest-event-this-tick
-    :initform 0)
+    :initform 0
+    :reader youngest-event-this-tick)
    (data
     :initform (make-hash-table))
    ;; (null-event)

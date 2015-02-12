@@ -13,21 +13,22 @@
 (defun handle-message-from-server (message)
   (userial:with-buffer message
     (userial:buffer-rewind)
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield)
+			      ;; (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield)
+			      )
     (ecase (userial:unserialize :server-opcode)
       (:handshake     (handle-handshake-message message))
       (:world-state (handle-world-state-message message)))))
 
 (defun handle-handshake-message (message)
   (userial:with-buffer message
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 client-id)
-			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield)
+    (userial:unserialize-let* (:int32 client-id)
 			      (setf (current-screen *client-state*) :game-play)
 			      (setf (client-id *client-state*) client-id))))
 
 (defun handle-world-state-message (message)
   (userial:with-buffer message
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 entity-count)
-			      ;; (network-engine:process-received-packet *channel* sequence ack ack-bitfield)
+    (userial:unserialize-let* (:int32 entity-count)
 			      (let ((ws (make-world-state)))
 				(loop repeat entity-count do
 				     (userial:unserialize-let* (:uint32 entity-id :float32 x :float32 y)
@@ -36,15 +37,18 @@
 
 (defun make-first-contact-message (name)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :client-opcode :first-contact
+    (userial:serialize* :uint32 0
+			:uint32 0
+			:uint32 0
+			:client-opcode :first-contact
 			:string name)))
 
 (defun make-event-message (sequence ack ack-bitfield event)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :client-opcode :event
-			:uint32 sequence
+    (userial:serialize* :uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
+			:client-opcode :event
 			:event-type :move
 			:uint32 (event-time event)
 			:uint32 (event-entity-id event)
@@ -56,8 +60,8 @@
 
 (defun make-disconnect-message (sequence ack ack-bitfield)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :client-opcode :disconnect
-			:uint32 sequence
+    (userial:serialize* :uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
+			:client-opcode :disconnect
 			:int32 (client-id *client-state*))))

@@ -2,11 +2,12 @@
 
 (defun read-messages ()
   (loop until (not (usocket:wait-for-input *server-socket* :timeout 0 :ready-only t)) do
-    (multiple-value-bind (buffer size remote-host remote-port)
-	(usocket:socket-receive *server-socket* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
-      (setf *current-remote-host* remote-host)
-      (setf *current-remote-port* remote-port)
-      (handle-message-from-client buffer))))
+       (multiple-value-bind (buffer size remote-host remote-port)
+	   (usocket:socket-receive *server-socket* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
+	 (let ((discard nil))
+	   (setf *current-remote-host* remote-host)
+	   (setf *current-remote-port* remote-port)
+	   (handle-message-from-client buffer)))))
 
 (defun send-message (channel buffer)
   (usocket:socket-send *server-socket*
@@ -19,6 +20,9 @@
 (defun handle-message-from-client (message)
   (userial:with-buffer message
     (userial:buffer-rewind)
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield)
+			      ;; (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield)
+			      )
     (ecase (userial:unserialize :client-opcode)
       (:first-contact  (handle-first-contact-message message))
       (:event  (handle-event-message message))
@@ -53,19 +57,19 @@
 
  (defun handle-event-message (message)
   (userial:with-buffer message 
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :event-type type :uint32 time :uint32 entity-id :boolean left-p :boolean right-p :boolean up-p :boolean attack-p :boolean block-p)
+    (userial:unserialize-let* (:event-type type :uint32 time :uint32 entity-id :boolean left-p :boolean right-p :boolean up-p :boolean attack-p :boolean block-p)
       
       ;; (sync time owner)
       (add-event (history *server-state*) (make-event :time time 
 						    :type type 
 						    :input (make-input-state :left-p left-p :right-p right-p :up-p up-p :attack-p attack-p :block-p block-p)
 						    :entity-id entity-id))
-      ;; (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield)
+
       )))
 
 (defun handle-disconnect-message (message)
   (userial:with-buffer message 
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack  :uint32 ack-bitfield :int32 client-id)
+    (userial:unserialize-let* (:int32 client-id)
 			      (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield)
 			      (assert client-id)
 			      (let ((client (lookup-client-by-id client-id)))
@@ -75,25 +79,18 @@
 
 (defun make-handshake-message (sequence ack ack-bitfield client-id)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :server-opcode :handshake
-			:uint32 sequence
+    (userial:serialize* :uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
+			:server-opcode :handshake
 			:int32 client-id)))
-
-(defun make-match-begin-message (sequence ack ack-bitfield)
-  (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :server-opcode :match-begin
-			:uint32 sequence
-			:uint32 ack
-			:uint32 ack-bitfield)))
 
 (defun make-world-state-message (sequence ack ack-bitfield)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :server-opcode :world-state
-			:uint32 sequence
+    (userial:serialize* :uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
+			:server-opcode :world-state
 			:int32 (world-state-entity-count (current-world-state *server-state*)))
     (loop for entity-status in (world-state-entities (current-world-state *server-state*)) do
 	 (userial:serialize* :uint32 (entity-status-entity-id entity-status)

@@ -32,13 +32,14 @@
 
 (defmethod update-world-at ((self scene) time)
   (with-slots (current-world-state) self
-    
-    )
-  
-  )
+
+    (setf (world-state-time current-world-state) time)))
+
 (defmethod rewind-world-to ((self scene) time)
   
+  ;; now let's have everyone adapt to the new world state
   )
+
 (defmethod update-archive-at ((self scene) time))
 (defmethod get-status ((self scene) id))
 (defmethod update-previous-world-state ((self scene)))
