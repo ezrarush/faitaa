@@ -4,7 +4,8 @@
   (usocket:socket-send *server-connection*
 		       buffer
 		       (length buffer))
-  (network-engine:process-sent-packet *channel* (sdl2:get-ticks) (length buffer)))
+  ;; (network-engine:process-sent-packet *channel* (sdl2:get-ticks) (length buffer))
+  )
 
 (defun read-messages ()
   (loop until (not (usocket:wait-for-input *server-connection* :timeout 0 :ready-only t)) do 

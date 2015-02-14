@@ -11,28 +11,52 @@
    (client-name
     :initarg :client-name
     :accessor client-name)
+   
+   (local-sequence
+    :initform 1)
+      
    (avg-pps
     :initform 1)
    (max-pps
     :initform 0)
-   (input-state
+   (current-input-state
     :initform (make-input-state)
     :accessor input-state)
+   
    (scene
     :initform (make-instance 'scene)
     :reader scene)
+   
+   (socket)
+   (port)
+
+   (server-addr)
+   (server-port)
    (connected-p
     :initform nil)
    (ready-p
     :initform nil)
    (synced-p
     :initform nil)
+
    (clock)
    (current-time)
+   
    (my-entity
     :initform :green)
    (sim-entity
     :initform :blue)
+   
+   (remote-sequence
+    :initform 0)
+   (last-ack)
+   (ack-field)
+   
+   (missing-ack-p
+    :initform nil)
+   
+   (out-message)
+   
    (srv-current-world-state)
    (srv-previous-world-state)
    (last-agreed-status)
@@ -42,17 +66,22 @@
     :initform 0)
    (first-delta
     :initform 0)
+   
    (new-agreed-status)
    (incoming-first-delta
     :initform 0)
    (incoming-last-delta
     :initform 0)
+   
    (history
     :initform (make-instance 'history)
     :accessor history)
    (incoming-isc)
+   
    (last-command-cast
     :initform 0)
+   
+   (out-going-messages)
    (urgent-messages)
    (waiting-for-ack)
    (sent)
@@ -64,12 +93,24 @@
     :initform 0)
    (sent-this-second
     :initform 0)
+
+   (in-packet)
+   (in-addr)
+   (in-port)
+   (in-pid)
+   (in-uid)
+   (in-seq)
+   (in-ack)
+   (in-field)
+   (in-msg)   
+   
    (archive-cleanup
     :initform 0)
    (history-cleanup
     :initform 0)
    (wsa-cleanup
     :initform 0)
+
    (connect-timeout
     :initform 5000)
    (pause

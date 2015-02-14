@@ -12,6 +12,7 @@
   :serial t
   :components ((:module client
 			:components ((:file "package")
+				     (:file "helpers")
 				     (:file "serial")
 				     (:file "message")
 				     (:file "input-state")
@@ -25,6 +26,7 @@
 				     (:file "client")))
 	       (:module server
 			:components ((:file "package")
+				     (:file "helpers")
 				     (:file "client")
 				     (:file "serial")
 				     (:file "message")
@@ -34,6 +36,6 @@
 				     (:file "entity")
 				     (:file "world-state")
 				     (:file "scene")
-				     (:file "server-state")
-				     (:file "server")))))
+				     (:file "server")
+				     (:file "main")))))
 

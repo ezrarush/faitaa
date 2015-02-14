@@ -2,6 +2,6 @@
 
 (defpackage #:faitaa-server
   (:use #:cl)
-  (:export #:server-main))
+  (:export #:main))
 
 
