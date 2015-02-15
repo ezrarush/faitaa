@@ -6,7 +6,7 @@
    (local-sequenc
     :initform 1)
    (pause
-    :initform 5)
+    :initform .005)
    
    (scene
     :initform (make-instance 'scene)
@@ -166,6 +166,158 @@
 	      (setf discard t)))
       discard)))
 
+(defmethod incoming-events ((self server))
+  (with-slots (in-packet history) self
+    (userial:with-buffer in-packet
+      (userial:unserialize-let* (:uint32 event-count)
+	(loop repeat event-count do
+	     (userial:unserialize-let* (:event-type type :int32 time :uint16 owner :uint16 entity-id)
+	       (let ((event (make-event :time time 
+					:owner owner
+					:type type 
+					:entity-id entity-id)))
+		 (ecase type
+		   (:move
+		    (userial:unserialize-let* (:boolean left-p :boolean right-p :boolean up-p :boolean attack-p :boolean block-p)
+		      (setf (input event) (make-input-state :left-p left-p :right-p right-p :up-p up-p :attack-p attack-p :block-p block-p))))
+		   (:hit
+		    (userial:unserialize-let* (:boolean left-p :boolean top-p :uint16 e-owner :uint16 u-id :boolean left-p :boolean right-p :boolean up-p :boolean attack-p :boolean block-p :int32 last-updated :float32 pos-x :float32 pos-y :float32 vel-x :float32 vel-y :int32 state-ptr :boolean in-air-p :boolean attacking-p :boolean hit-already-p :boolean hit-needs-release-p :int32 delta-since-lac)
+		      (setf (event-letf-p event) letf-p)
+		      (setf (event-top-p event) top-p)
+		      (setf (event-target-status event) (make-entity-status :owner e-owner 
+									    :entity-id u-id 
+									    :current-input-state (make-input-state :left-p left-p 
+														   :right-p right-p 
+														   :up-p up-p 
+														   :attack-p attack-p 
+														   :block-p block-p)
+									    :last-updated last-updated
+									    :pos (sb-cga:vec pos-x pos-y 0.0)
+									    :vel (sb-cga:vec vel-x vel-y 0.0)
+									    :state-ptr state-ptr
+									    :in-air-p in-air-p
+									    :attacking-p attacking-p
+									    :hit-already-p hit-already-p
+									    :hit-needs-release-p hit-needs-release-p))
+		      (setf (event-delta-since-lac event) delta-since-lac))))
+		 (sync self (time event) (owner event))
+		 (add-event history event))))))))
+
+(defmethod incoming-first-contact ((self server))
+  (with-slots (in-packet in-addr in-port waiting-for-ack out-message clock urgent-messages) self 
+      (userial:with-buffer message
+	(userial:unserialize-let* (:string name)
+	  (if (lookup-client-by-port in-port)
+	      (progn
+		(let ((waiting nil))
+		  (loop for msg being the hash-value in waiting-for-ack do
+		       (when (eq (message-addr msg) in-addr)
+			 (setf waiting t)))
+		  (if waiting
+		    (format t "flooding reconnect from address ~a; port ~a~%" in-addr in-port)
+		    (progn
+		      (format t "existing client reconnect from address ~a; port ~a~%" in-addr in-port)
+		      (finish-output)
+		      (reset (lookup-client-by-port in-port) in-addr in-port name)
+		      (roger-that self)
+		      (pack-header self out-message (client-id (lookup-client-by-port in-port)) :handshake (get-elapsed-time clock) 3)
+		      (setf urgent-messages (append urgent-messages (list out-message)))))))
+	      (progn
+		(format t "new client from address ~a; port ~a~%" in-addr in-port)
+		(finish-output)
+		(make-instance 'client :addr in-addr :port in-port :name name)
+		(roger-that self)
+		(pack-header self out-message (client-id (lookup-client-by-port in-port)) :handshake (get-elapsed-time clock) 3)
+		(setf urgent-messages (append urgent-messages (list out-message)))))))))
+
+(defmethod incoming-handshake ((self server))
+  (with-slots (in-addr in-port in-rtt suspicious-rtt handshake-needed out-message clock urgent-messages) self
+    (let ((client (lookup-client-by-port in-port)))
+      (if (>= in-rtt suspicious-rtt)
+	  (progn
+	    (format t "suspicious rtt")
+	    (finish-output)
+	    (decf (handshaken client)))
+	  (setf (rtt client) (+ (rtt client) in-rtt)))
+      (incf (handshaken client))
+      (if (= (handshaken client) handshake-needed)
+	  (progn
+	    (setf (rtt client) (/ (rtt client) handshake-needed))
+	    (setf (connected-p client) t)
+	    (format t "client connected (RTT:~a)~%" (rtt client))
+	    (finish-output)
+	    (broadcast-lobby-info self))
+	  (progn
+	    (pack-header self out-message (u-id client) :handshake (get-elapsed-time clock) 3)
+	    (setf urgent-messages (append urgent-messages (list out-message))))))))
+
+(defmethod broadcast-lobby-info ((self server))
+  (with-slots (cloct out-message urgent-messages) self
+    (let ((connected-clients (list))
+	  (time (get-elapsed-time clock)))
+      (loop for client being the hash-value in *clients* do
+	   (when (connected-p client)
+	     (push (client-id client) connected-clients)))
+      (loop for client being the hash-value in *clients* do
+	   (when (connected-p client)
+	     (pack-header out-message (client-id client) :lobby-info time 3)
+	     (userial:with-buffer (message-packet out-message)
+	       (userial:serialize* :uint16 (length connected-clients))
+	       (loop for client-id in connected-clients do
+		    (userial:serialize* :string (name (lookup-client-by-id client-id))
+					:int32 (rtt (lookup-client-by-id client-id))
+					:boolean (ready-p (lookup-client-by-id client-id))))
+	       (setf urgent-messages (append urgent-messages (list out-message)))))))))
+
+(defmethod sync-time ((self server))
+  (with-slots (clock out-message urgent-messages) self
+    (let ((time (get-elapsed-time clock)))
+      (loop for client-id being the hash-key in *clients* do
+	   (pack-header self out-message client-id :sync-clocks time 10)
+	   (setf urgent-messages (append urgent-messages (list out-message)))))
+    (restart-clock clock)))
+
+(defmethod incoming-sync ((self server))
+  (with-slots (in-addr in-port everyone-synced-p last-tick-time clock) self
+    (setf (synced-p (lookup-client-by-port in-port)) t)
+    (when (and (all-clients-synced-p) (not everyone-synced-p))
+      (format t "all clients synced~%")
+      (finish-output)
+      (setf everyone-synced-p t)
+      (setf last-tick-time (get-elapsed-time clock))
+      (setup-stage self))))
+
+(defmethod setup-stage ((self server))
+  (with-slots (scene isc) self
+    (loop for client being the hash-value in *clients* do
+	 (format t "adding entity fo client-id:~a~%" (client-id client))
+	 (finish-output)
+	 (let ((col))
+	   (case (mod (client-id client) 4)
+	     (0 (setf col :blue))
+	     (1 (setf col :yellow))
+	     (2 (setf col :green))
+	     (3 (setf col :red)))
+	   (setf (entity-id client) (add-entity scene (client-id client) col))
+	   (setf (entity-status-entity-id (last-agreed-status client)) (entity-id client))
+	   (setf (entity-status-owner-id (last-agreed-status client)) (client-id client)) ;; diferent !!!
+	   (setf (gethash (client-id client) (isc-isc-count isc)) 0)))))
+
+(defmethod incoming-ready ((self server))
+  (with-slots (in-addr in-port expected-clients sync-attempted-p) self
+    (setf (ready-p (lookup-client-by-port in-port)) t)
+    (broadcast-lobby-info self)
+    (when (and (all-clients-ready-p) (= (hash-table-count *clients*) expected-clients) (not (sync-attempted-p)))
+      (format t "all clients ready, syncing clocks...~%")
+      (finish-output)
+      (sync-time self)
+      (setf sync-attempted-p t))))
+
+(defmethod incoming-unready ((self server))
+  (with-slots (in-addr in-port) self
+	(setf (ready-p (lookup-client-by-port in-port)) nil)
+	(broadcast-lobby-info self)))
+
 (defmethod receive-stuff ((self server))
   (with-slots (socket in-addr in-port in-pid in-uid in-seq in-ack in-msg in-rtt protocol-id sent waiting-for-ack) self
     (when (usocket:wait-for-input socket :timeout 0 :ready-only t) 
@@ -178,7 +330,7 @@
 	
 	(userial:with-buffer in-packet
 	  (userial:buffer-rewind)
-	  (userial:unserialize-let* (:uint32 protocol-id :uint32 client-id :uint32 remote-sequence :uint32 ack :msg message-type)
+	  (userial:unserialize-let* (:uint16 protocol-id :uint16 client-id :uint32 remote-sequence :uint32 ack :msg message-type)
 				    
 				    (setf in-pid protocol-id)
 				    (setf in-uid client-id)
@@ -212,7 +364,7 @@
 					    (:sync-clocks (incoming-sync))))))))))))
 
 (defmethod run ((self server))
-  (with-slots (port current-time  everyone-synced-p last-tick-time tick-time) self
+  (with-slots (port current-time  everyone-synced-p last-tick-time tick-time last-sent-cleanup sent-timeout last-history-cleanup history-timeout history history-length last-wsa-cleanup wsa-timeout scene wsa-length pause) self
     (sdl2:with-init (:everything)
       (unwind-protect
 	   (sdl2:with-event-loop (:method :poll)
@@ -232,9 +384,28 @@
 		  (send-stuff self)))
 	     (:quit () t))
 	;; cleanup
+	(when (>= (- current-time last-sent-cleanup) sent-timeout)
+	  (setf last-sent-cleanup current-time)
+	  (refresh-sent self))
+	
+	(when (>= (- current-time last-history-cleanup) history-timeout)
+	  (setf last-history-cleanup current-time)
+	  (cleanup history (- current-time history-length)))
+	
+	(when (>= (- current-time last-wsa-cleanup) wsa-timeout)
+	  (setf last-wsa-cleanup current-time)
+	  (cleanup scene (- current-time wsa-length)))
 	(format t "stopping server")
 	(finish-output)
-	(stop-server)))))
+	(stop-server)
+	(sleep pause)))))
+
+(defmethod refresh-sent ((self server))
+  ;; (with-slots (waiting-for-ack current-time) self
+  ;;   (let ((end (last waiting-for-ack))))
+  ;;   )
+  
+  )
 
 (defmethod send-stuff ((self server))
   (with-slots (urgent-messages current-time out-message socket sent waiting-for-ack outbox-timer outbox-clock sent-this-second max-message-count resend-time out-going-messages) self
@@ -291,122 +462,321 @@
 	(setf (gethash current-time waiting-for-ack) msg))
       (incf sent-this-second))))
 
-(defun tick (time)
-  
-  (let* ((update-ptr (world-state-time (current-world-state *server-state*)))
-	 (next-event (get-next-event (history *server-state*) (- update-ptr 1)))
-	 (next-frame-time (+ update-ptr (frame-time-in-ms *server-state*)))
-	 (last-frame-time 0)
-	 (first-ws-passed nil)
-	 (start-of-last-tick (- time (tick-time *server-state*))))
-    
-    ;; rewind time if needed
-    ;; (when (< (oldest-event-this-tick (history *server-state*)) (world-state-time (current-world-state *server-state*)))
-    ;;   (format t "rewind time~%")
-    ;;   (rewind-world-to (scene *server-state*) (oldest-event-this-tick (history *server-state*))))
-    
-    (loop while (or (<= next-frame-time time) 
-		    (and next-event 
-			 (<= (event-time next-event) time))) do
-	 (if (or (not next-event) (< next-frame-time (event-time next-event)))
-	   (progn
-	     ;; (format t "no events to deal with before reaching the next frame~%")
-	     (update-world-at (scene *server-state*) next-frame-time)
-	     (setf last-frame-time next-frame-time)
-	     (incf next-frame-time (frame-time-in-ms *server-state*)))
-	   (progn
-	     (format t "there's an event we have to deal with before the end of this frame~%")
-	     (setf update-ptr (event-time next-event))
-	     (setf next-event (get-next-event (history *server-state*) update-ptr)))))
-    
-    ;; deal with leftover time when tick doesn't end exactly at tick-time
-    (when (< last-frame-time time)
-      (update-world-at (scene *server-state*) time))
-    
-    ;; calculate client's last-command deltas and last agreed status
-    
-    ;; add our own event, reset history's oldest-event-this-tick, events in next tick will be compared to this ws-event
-    ;; (add-event (history *server-state*) (make-event :type :state-refresh :time time))
-    ;; (reset-oldest-event (history *server-state*))
-    
-    ;; (update-prev-world-state (scene *server-state*))
-    
-    ;; save current state
-    ;; (save-current (scene *server-state*) time)
-    
-    ;; finally, broadcast event
-    (loop for channel being the hash-value in network-engine:*channels* do
-	 (send-message channel (make-world-state-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel)))
-       ;; (network-engine:update-metrics channel)
-	 )))
+;; (defmethod move-entity ((self server) event)
+;;   (with-slots (scene) self
+;;     (move-entity scene (entity-id (lookup-client-by-id (event-owner event))) (event-input event) (event-time event))))
 
-(defun handle-first-contact-message (message) 
-  (userial:with-buffer message
-    (userial:unserialize-let* (:string name)
-      (assert (plusp (length name)))
-      (let ((client (make-client name))
-	    ;; (channel (network-engine:make-channel *current-remote-host* *current-remote-port*))
-	    )
-	(setf (channel client) channel)  
-	(send-message channel (make-handshake-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (client-id client)))
-	(setf (entity-id client) (add-entity (scene *server-state*) (client-id client) :red))
-	(setf (entity-status-entity-id (last-agreed-status client)) (entity-id client))
-	(setf (entity-status-owner (last-agreed-status client)) (client-id client))
-	(setf (gethash (client-id client) (isc-isc-count (isc *server-state*))) 0) ;;mISC.mIscCount[i] = 0; // setting up input change records
-	(format t "~a (client-id: ~a) has connected.~%" name (client-id client))
-	(finish-output))))
-
-  ;; start ticking when a client connects
-  (when (= (hash-table-count *clients*) 1)
-    (setf (last-tick-time *server-state*) (sdl2:get-ticks)))
-  
-  ;; (when (= (hash-table-count *clients*) 2)
-  ;;   (format t "2 players found, starting match~%")
-  ;;   (finish-output)  
-  ;;   ;; (setf (current-mode *server-state*) :match)
-  ;;   (loop for channel being the hash-value in network-engine:*channels* do
-  ;; 	 (send-message channel (make-match-begin-message (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel)))))
+(defmethod broadcast-world-state ((self server) start-of-last-tick)
+  (with-slots (out-message current-world-state) self
+    (loop for client being the hash-value in *clients* do
+	 (pack-header self out-message (client-id client) :world-state (world-state-time current-world-state) 0)
+	 (userial:with-buffer (message-packet out-message)
+	   (userial:serialize* :uint16 (world-state-entity-count previous-world-state))
+	   (loop for entity-status in (world-state-entities previous-world-state) do
+		(userial:serialize* :uint32 (entity-status-owner entity-status) 
+				    :uint32 (entity-status-entity-id entity-status) 
+				    :boolean (input-state-left-p (entity-status-current-input-state entity-status)) 
+				    :boolean (input-state-right-p (entity-status-current-input-state entity-status)) 
+				    :boolean (input-state-up-p (entity-status-current-input-state entity-status)) 
+				    :boolean (input-state-attackt-p (entity-status-current-input-state entity-status)) 
+				    :boolean (input-state-block-p (entity-status-current-input-state entity-status)) 
+				    :uint32 (entity-status-last-updated entity-status) 
+				    :float32 (aref (entity-status-pos entity-status) 0) 
+				    :float32 (aref (entity-status-pos entity-status) 1) 
+				    :float32 (aref (entity-status-vel entity-status) 0) 
+				    :float32 (aref (entity-status-vel entity-status) 1) 
+				    :int32 (entity-status-state-ptr entity-status) 
+				    :boolean (entity-status-in-air-p entity-status) 
+				    :boolean (entity-status-attacking-p entity-status) 
+				    :boolean (entity-status-hit-already-p entity-status) 
+				    :boolean (entity-status-hit-needs-release-p entity-status)))
+	   (userial:serialize :uint32 (world-state-time previous-world-state))
+	   
+	   (userial:serialize :uint16 (world-state-entity-count current-world-state))
+	   (loop for entity-status in (world-state-entities current-world-state) do
+		(userial:serialize* :uint32 (entity-status-owner entity-status) 
+				    :uint32 (entity-status-entity-id entity-status) 
+				    :boolean (input-state-left-p (entity-status-current-input-state entity-status)) 
+				    :boolean (input-state-right-p (entity-status-current-input-state entity-status)) 
+				    :boolean (input-state-up-p (entity-status-current-input-state entity-status)) 
+				    :boolean (input-state-attackt-p (entity-status-current-input-state entity-status)) 
+				    :boolean (input-state-block-p (entity-status-current-input-state entity-status)) 
+				    :uint32 (entity-status-last-updated entity-status) 
+				    :float32 (aref (entity-status-pos entity-status) 0) 
+				    :float32 (aref (entity-status-pos entity-status) 1) 
+				    :float32 (aref (entity-status-vel entity-status) 0) 
+				    :float32 (aref (entity-status-vel entity-status) 1) 
+				    :int32 (entity-status-state-ptr entity-status) 
+				    :boolean (entity-status-in-air-p entity-status) 
+				    :boolean (entity-status-attacking-p entity-status) 
+				    :boolean (entity-status-hit-already-p entity-status) 
+				    :boolean (entity-status-hit-needs-release-p entity-status)))
+	   (userial:serialize :uint32 (world-state-time current-world-state))
+	   
+	   
+	   ;; input changes this tick: all clients receive the input changes of others and not their own
+	   (userial:serialize :uint16 (changes-for-others isc (client-id client)))
+	   
+	   (loop for j from 0 to (isc-item-count isc) do
+		(unless (eq (input-state-change-owner (aref (isc-item isc) j)) (client-id client))
+		  (userial:serialize* :int32 (input-state-change-delta (aref (isc-item isc) j)) 
+				      :uint16 (input-state-change-owner (aref (isc-item isc) j))
+				      :uint16 (input-state-change-entity-id (aref (isc-item isc) j))
+				      :boolean (input-state-left-p (input-state-change-input (aref (isc-item isc) j))) 
+				      :boolean (input-state-right-p (input-state-change-input (aref (isc-item isc) j))) 
+				      :boolean (input-state-up-p (input-state-change-input (aref (isc-item isc) j))) 
+				      :boolean (input-state-attackt-p (input-state-change-input (aref (isc-item isc) j))) 
+				      :boolean (input-state-block-p (input-state-change-input (aref (isc-item isc) j))))))
+	   
+	   ;; pack last agreed status
+	   (userial:serialize* :uint16 (entity-status-owner (last-agreed-status client)) 
+			       :uint16 (entity-status-entity-id (last-agreed-status client))
+			       :boolean (input-state-left-p (entity-status-current-input-state (last-agreed-status client)))
+			       :boolean (input-state-right-p (entity-status-current-input-state (last-agreed-status client)))
+			       :boolean (input-state-up-p (entity-status-current-input-state (last-agreed-status client)))
+			       :boolean (input-state-attack-p (entity-status-current-input-state (last-agreed-status client)))
+			       :boolean (input-state-block-p (entity-status-current-input-state (last-agreed-status client)))
+			       :int32  (entity-status-last-updated (last-agreed-status client))
+			       :state (entity-status-state (last-agreed-status client))
+			       :float32 (aref (entity-status-pos (last-agreed-status client)) 0) 
+			       :float32 (aref (entity-status-pos (last-agreed-status client)) 1) 
+			       :float32 (aref (entity-status-vel (last-agreed-status client)) 0)
+			       :float32 (aref (entity-status-vel (last-agreed-status client)) 1)
+			       :int32  (entity-status-state-ptr (last-agreed-status client))
+			       :boolean (entity-status-in-air-p (last-agreed-status client))
+			       :boolean (entity-status-attackting-p (last-agreed-status client))
+			       :boolean (entity-status-blocking-p (last-agreed-status client))
+			       :boolean (entity-status-hit-needs-release-p (last-agreed-status client)))
+	   (userial:serialize :int32 (delta-to-first-tick client))
+	   
+	   ;; add hit events. For now send to everyone 
+	   (userial:serialize :uint16 (length (hit-queue scene)))
+	   (loop for event in (hit-queue scene) do
+		
+		;; Temporarily modify hitEvent in hitQueue, so that time is expressed
+		;; in delta from start of previous tick. Then we need to switch it back
+		;; to actual, absolute time, b/c in the next iteration that's how we'll
+		;; be able to decide whether that particular event is relevant for the
+		;; next client.
+		(let ((tmp (event-time event)))
+		  (setf (event-delta-since-lac event) (- (event-time event) (entity-statu-last-updated (last-agreed-status client))))
+		  (decf (event-time event) start-of-last-tick)
+		  
+		  ;; pack event
+		  (userial:serialize* :type (event-type event) 
+				      :uint32 (event-time event)
+				      :uint16 (event-owner event)
+				      :uint16 (event-entity-id event))
+		  
+		  (case (event-type event)
+		    (:move
+		     (userial:serialize* :boolean  (input-state-left-p (event-input event)) 
+					 :boolean (input-state-right-p (event-input event)) 
+					 :boolean (input-state-up-p (event-input event)) 
+					 :boolean (input-state-attack-p (event-input event)) 
+					 :boolean (input-state-block-p (event-input event))))
+		    (:hit
+		     (userial:serialize* :boolean (event-left-p event) 
+					 :boolean (event-top-p event) 
+					 :uint16 (entity-status-owner (event-target-status event)) 
+					 :uint16 (entity-status-entity-id (event-target-status event)) 
+					 :boolean (input-state-left-p (entity-status-current-input-state (event-target-status event))) 
+					 :boolean (input-state-right-p (entity-status-current-input-state (event-target-status event))) 
+					 :boolean (input-state-up-p (entity-status-current-input-state (event-target-status event)))
+					 :boolean (input-state-attack-p (entity-status-current-input-state (event-target-status event)))
+					 :boolean (input-state-block-p (entity-status-current-input-state (event-target-status event)))
+					 :int32 (entity-status-last-updated (event-target-status event))
+					 :state (entity-status-state (event-target-status event)) 
+					 :float32 (aref (entity-status-pos (event-target-status event)) 0) 
+					 :float32 (aref (entity-status-pos (event-target-status event)) 1) 
+					 :float32 (aref (entity-status-vel (event-target-status event)) 0) 
+					 :float32 (aref (entity-status-vel (event-target-status event)) 1) 
+					 :int32 (entity-status-state-ptr (event-target-status event)) 
+					 :boolean (entity-status-in-air-p (event-target-status event)) 
+					 :boolean (entity-status-attacking-p (event-target-status event)) 
+					 :boolean (entity-status-hit-already-p (event-target-status event)) 
+					 :boolean (entity-status-hit-needs-release-p (event-target-status event)) 
+					 :int32 (event-delta-since-lac event))))
+		  (setf (event-time event) tmp)))
+	   
+	   ;; send previous hit queue for redundancy
+	   (userial:serialize :uint16 (length previous-hit-queue))
+	   (loop for event in previous-hit-queue do
+		
+		;; tmp change time to delta
+		(let ((tmp (event-time event)))
+		  (setf (event-delta-since-lac event) (- (event-time event) (entity-statu-last-updated (last-agreed-status client))))
+		  (decf (event-time event) (- start-of-last-tick tick-time))
+		  
+		  ;; pack event
+		  (userial:serialize* :type (event-type event) 
+				      :uint32 (event-time event)
+				      :uint16 (event-owner event)
+				      :uint16 (event-entity-id event))
+		  
+		  (case (event-type event)
+		    (:move
+		     (userial:serialize* :boolean  (input-state-left-p (event-input event)) 
+					 :boolean (input-state-right-p (event-input event)) 
+					 :boolean (input-state-up-p (event-input event)) 
+					 :boolean (input-state-attack-p (event-input event)) 
+					 :boolean (input-state-block-p (event-input event))))
+		    (:hit
+		     (userial:serialize* :boolean (event-left-p event) 
+					 :boolean (event-top-p event) 
+					 :uint16 (entity-status-owner (event-target-status event)) 
+					 :uint16 (entity-status-entity-id (event-target-status event)) 
+					 :boolean (input-state-left-p (entity-status-current-input-state (event-target-status event))) 
+					 :boolean (input-state-right-p (entity-status-current-input-state (event-target-status event))) 
+					 :boolean (input-state-up-p (entity-status-current-input-state (event-target-status event)))
+					 :boolean (input-state-attack-p (entity-status-current-input-state (event-target-status event)))
+					 :boolean (input-state-block-p (entity-status-current-input-state (event-target-status event)))
+					 :int32 (entity-status-last-updated (event-target-status event))
+					 :state (entity-status-state (event-target-status event)) 
+					 :float32 (aref (entity-status-pos (event-target-status event)) 0) 
+					 :float32 (aref (entity-status-pos (event-target-status event)) 1) 
+					 :float32 (aref (entity-status-vel (event-target-status event)) 0) 
+					 :float32 (aref (entity-status-vel (event-target-status event)) 1) 
+					 :int32 (entity-status-state-ptr (event-target-status event)) 
+					 :boolean (entity-status-in-air-p (event-target-status event)) 
+					 :boolean (entity-status-attacking-p (event-target-status event)) 
+					 :boolean (entity-status-hit-already-p (event-target-status event)) 
+					 :boolean (entity-status-hit-needs-release-p (event-target-status event)) 
+					 :int32 (event-delta-since-lac event))))
+		  (setf (event-time event) tmp))))
+	 (setf urgent-messages (append urgent-messages (list out-message))))
+    
+    (loop for event in (hit-queue scene) do
+	 (add-event history event))
+    
+    ;; archive hit events
+    (setf previous-hit-queue (hit-queue scene))
+    
+    ;; hit queue is cleared each tick
+    
+    )
   )
 
- (defun handle-event-message (message)
-  (userial:with-buffer message 
-    (userial:unserialize-let* (:event-type type :uint32 time :uint32 entity-id :boolean left-p :boolean right-p :boolean up-p :boolean attack-p :boolean block-p)
+(defmethod tick ((self server) time)
+  (with-slots (isc scene history current-world-state frame-time-in-ms tick-time) self
+    
+    ;; reset input changes
+    (setf (isc-item-count isc) 0)
+    (loop for i being the hash-value in (isc-isc-count isc) do
+	 (setf i 0))
+
+    (loop for client being the hash-value in *clients* do
+	 (setf (first-delta-set client) t))
+    
+    ;; clear hit Q
+    (setf (hit-queue scene) (make-array))
+    
+    ;; rewind time if needed
+    (when (< (oldest-event-this-tick history) (world-state-time current-world-state))
+      (rewind-world-to scene (oldest-event-this-tick history)))
+
+    ;; get the first event this tick and the next frame time
+    (let* ((update-ptr (world-state-time current-world-state))
+	   (next-event (get-next-event history (- update-ptr 1)))
+	   (next-frame-time (+ update-ptr frame-time-in-ms))
+	   (last-frame-time 0)
+	   (first-ws-passed-p nil)
+	   (start-of-last-tick (- time tick-time)))
       
-      ;; (sync time owner)
-      (add-event (history *server-state*) (make-event :time time 
-						    :type type 
-						    :input (make-input-state :left-p left-p :right-p right-p :up-p up-p :attack-p attack-p :block-p block-p)
-						    :entity-id entity-id))
+      ;; iterate through history until we reach the present
+      
+      (loop while (or (<= next-frame-time time) 
+		      (and next-event 
+			   (<= (event-time next-event) time))) do
+	   (if (or (not next-event) (< next-frame-time (event-time next-event)))
+	       (progn
+		 ;; (format t "no events to deal with before reaching the next frame~%")
+		 (update-world-at scene next-frame-time)
+		 (setf last-frame-time next-frame-time)
+		 (incf next-frame-time frame-time-in-ms))
+	       (progn
+		 ;; (format t "there's an event we have to deal with before the end of this frame~%")
+		 (when (and (not (eq (event-type next-event) :state-refresh)) (> (event-time next-event) (last-seen-command-time (lookup-client-by-id (event-owner next-event)))))
+		   (setf (last-seen-command-time (lookup-client-by-id (event-owner next-event))) (event-time next-event))
+		   (setf (first-delta-set (lookup-client-by-id (event-owner next-event))) nil))
+		 
+		 ;; need to broadcast, so save to isc (input-state-changes)
+		 (when (eq (event-type next-event) :move)
+		   (if (> (event-time next-event) (start-of-last-tick))
+		       (when (< (isc-item-count isc) (isc-max-items))
+			 (setf (input-state-change-input (aref (isc-item isc) (isc-item-count isc))) (event-input next-event))
+			 (setf (input-state-change-delta (aref (isc-item isc) (isc-item-count isc))) (- (event-time next-event) start-of-last-tick))
+			 (setf (input-state-change-owner (aref (isc-item isc) (isc-item-count isc))) (event-owner next-event))
+			 (setf (input-state-change-enity-id (aref (isc-item isc) (isc-item-count isc))) (event-entity-id next-event))
+			 (incf (gethash (event-owner next-event) (isc-isc-count isc)))
+			 (incf (isc-item-count isc)))
+		       (format t "event in the past")))
+		 
+		 ;; event dispatch
+		 (ecase (event-type next-event)
+		   (:move 
+		    ;; (move-entity self next-event)
+		    )
+		   (:hit 
+		    (hit-entity scene next-event))
+		   (:state-refresh
+		    (if first-ws-passed-p
+			(progn
+			  (update-world-at scene (event-time next-event))
+			  (update-archive-at scene (event-time next-event))
+			  (loop for client being the hash-value in *clients* do
+			       (if (not (first-delta-set client))
+				   (progn)
+				   (when (= (entity-status-last-updated (last-agreed-status client)) (event-time next-event))
+				     (setf (last-agreed-status client) (get-status scene (client-id client)))))))
+			(setf first-ws-passed-p t))))
+		 
+		 (setf update-ptr (event-time next-event))
+		 (setf next-event (get-next-event (history *server-state*) update-ptr)))))
+      
+      ;; deal with leftover time when tick doesn't end exactly at tick-time
+      (when (< last-frame-time time)
+	(update-world-at (scene *server-state*) time))
+      
+      ;; calculate client's last-command deltas and last agreed status
+      (loop for client being the hash-value in *clients* do
+	   (unless (first-delta-set client)
+	     (setf (first-delta-set client) t)
+	     (setf (last-agreed-status client) (get-status scene (client-id client)))
+	     (setf (delta-to-first-tick client) (- time (last-seen-command-time client)))))
+      
+      ;; add our own event, reset history's oldest-event-this-tick, events in next tick will be compared to this ws-event
+      (add-event history (make-event :type :state-refresh :time time))
+      (reset-oldest-event history)
+      
+      (update-prev-world-state scene)
+      
+      ;; save current state
+      (save-current scene time)
+      
+      ;; broadcast event
+      (broadcast-world-state self start-of-last-tick))))
 
-      )))
+(defmethod sync ((self server) time id)
+  (with-slots (clock) self
+    (setf time (+ time (rtt (lookup-client-by-id id))))
+    (let ((time-now (get-elapsed-time clock)))
+      (when (> time time-now)
+	;; todo
+	))))
 
-(defun handle-disconnect-message (message)
-  (userial:with-buffer message 
-    (userial:unserialize-let* (:int32 client-id)
-			      (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield)
-			      (assert client-id)
-			      (let ((client (lookup-client-by-id client-id)))
-				(remove-client client)
-				(format t "~a (client-id: ~a) has disconnected.~%" (name client) client-id)
-				(finish-output)))))
-
-(defun make-handshake-message (sequence ack ack-bitfield client-id)
-  (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :uint32 sequence
-			:uint32 ack
-			:uint32 ack-bitfield
-			:server-opcode :handshake
-			:int32 client-id)))
-
-(defun make-world-state-message (sequence ack ack-bitfield)
-  (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :uint32 sequence
-			:uint32 ack
-			:uint32 ack-bitfield
-			:server-opcode :world-state
-			:int32 (world-state-entity-count (current-world-state *server-state*)))
-    (loop for entity-status in (world-state-entities (current-world-state *server-state*)) do
-	 (userial:serialize* :uint32 (entity-status-entity-id entity-status)
-			     :float32 (aref  (entity-status-pos entity-status) 0)
-			     :float32 (aref (entity-status-pos entity-status) 1)))
-    (userial:get-buffer)))
+(defmethod pack-header ((self server) msg u-id msg-type time ttl)
+  (with-slots (protocol-id local-sequence) self
+    (setf (message-packet msg) (userial:make-buffer))
+    (userial:with-buffer (message-packet msg)
+      (userial:serialize* :uint16 protocol-id
+			  :uint16 u-id
+			:uint32 local-sequence
+			:uint32 (sequence (lookup-client-by-id u-id))
+			:uint32 (acks (lookup-client-by-id u-id))
+			:msg msg-type))
+    (setf (message-addr msg) (addr (lookup-client-by-id u-id)))
+    (setf (message-time-sent msg) time)
+    (setf (message-ttl msg) ttl)
+    (setf (message-sequence msg) local-sequence)
+    (incf local-sequence)))

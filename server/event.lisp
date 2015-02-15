@@ -8,7 +8,7 @@
   input
   owner
   entity-id
-  (left nil)
-  (top nil)
+  (left-p nil)
+  (top-p nil)
   target-status
   (delta-since-lac 0))

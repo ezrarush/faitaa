@@ -118,3 +118,31 @@
 		 (finish-output)
 		 (send-message (make-disconnect-message (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*)))))
 	  (disconnect-from-server))))))
+
+
+
+;;;;;;;;;;;;;;;
+
+
+;; (defun incoming-events ((self server))
+;;   (with-slots (in-packet history) self
+;;     (userial:with-buffer in-packet
+;;       (userial:unserialize-let* (:uint32 event-count)
+;; 	(loop repeat event-count do
+;; 	     (userial:unserialize-let* (:event-type type :uint32 time :uint32 owner :uint32 entity-id)
+;; 	       (let ((event (make-event :time time 
+;; 					      :type type 
+;; 					      :entity-id entity-id))))
+;; 	       (ecase type
+;; 		 (:move
+;; 		  (userial:unserialize-let* (:boolean left-p :boolean right-p :boolean up-p :boolean attack-p :boolean block-p)
+;; 		    (setf (input event) (make-input-state :left-p left-p :right-p right-p :up-p up-p :attack-p attack-p :block-p block-p))))
+;; 		 (:hit
+;; 		  (userial:unserialize-let* (:boolean left-p :boolean top-p :uint32 e-owner :uint32 u-id :boolean left-p :boolean right-p :boolean up-p :boolean attack-p :boolean block-p :uint32 last-updated :state state :float32 pos-x :float32 pos-y :float32 vel-x :float32 vel-y :int32 state-ptr :boolean in-air-p :boolean is-punching-p :boolean hit-already-p :boolean hit-needs-release-p :uint32 delta-since-lac)
+;; 		    (setf (input event) (make-input-state :left-p left-p :right-p right-p :up-p up-p :attack-p attack-p :block-p block-p)))
+;; 		  )
+		 
+;; 		 )
+	       
+;; 	       (sync self (time event) (owner event))
+;; 	       (add-event history event)))))))

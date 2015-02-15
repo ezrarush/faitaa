@@ -57,12 +57,12 @@
     :accessor client-id)
    (entity-id
     :accessor entity-id)
+   (addr
+    :initarg :addr
+    :accessor addr)
    (port
     :initarg :port
     :accessor port)
-   (host
-    :initarg :host
-    :accessor host)
    (rtt
     :initform 0)
    (sequence
@@ -72,7 +72,7 @@
     :accessor last-ack)
    (acks
     :initform 0)
-   (hand-shaken
+   (handshaken
     :initform 0)
    (connected-p
     :initform nil)
@@ -83,8 +83,10 @@
    (last-seen-command-time
     :initform 0)
    (delta-to-first-tick
-    :initform 0)
-   (last-agreed-status)
+    :initform 0
+    :accessor delta-to-first-tick)
+   (last-agreed-status
+    :initform (make-entity-status))
    (first-delta-set-p
     :initform nil)))
 
@@ -92,10 +94,10 @@
   (add-client self))
 
 (defmethod reset ((self client) new-host new-port new-name)
-  (with-slots (name port host rtt sequence last-ack acks hand-shaken connected-p synced-p ready-p last-seen-command-time delta-to-first-tick) self
+  (with-slots (name port addr rtt sequence last-ack acks hand-shaken connected-p synced-p ready-p last-seen-command-time delta-to-first-tick) self
     (setf name new-name)
     (setf port new-port)
-    (setf host new-host)
+    (setf addr new-host)
     (setf rtt 0)
     (setf sequence 0)
     (setf last-ack 0)

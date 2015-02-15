@@ -19,7 +19,9 @@
     :initform (make-world-state)
     :accessor previous-world-state)
    (past-world-states)
-   (hit-queue)))
+   (hit-queue
+    :initform (vector)
+    :accessor hit-queue)))
 
 ;; add entity for client and returns entity-id
 (defmethod add-entity ((self scene) owner color)
