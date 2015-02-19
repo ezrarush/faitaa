@@ -14,7 +14,7 @@
   input)
 
 (defstruct isc
-  input-state-changes
+  (item (make-array 20))
   (item-count 0)
   (max-items 20)
   isc-count)

@@ -35,8 +35,11 @@
 	  (format t "new event added to history:~%~a~%" event)
 	  (finish-output)))))
 
+;; TODO - test edge cases
 (defmethod get-next-event ((self history) deadline)
   (with-slots (data) self
-    (gethash (loop for time being the hash-key in data thereis (> time deadline)) data)))
+    ;; this is "next-key = data.upper_bound(deadline);" in c++
+    (let ((next-key (loop for key in (sort (hash-table-keys data) #'>) thereis (> key deadline))))
+      (gethash next-key data))))
 
 (defmethod cleanup ((self history) deadline))

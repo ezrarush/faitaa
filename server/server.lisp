@@ -3,10 +3,10 @@
 (defclass server ()
   ((protocol-id
     :initarg :protocol-id)
-   (local-sequenc
+   (local-sequence
     :initform 1)
    (pause
-    :initform .005)
+    :initform 0.005)
    
    (scene
     :initform (make-instance 'scene)
@@ -161,7 +161,7 @@
 		(if (and (>= (- shift 1) 0) (< (- shift 1) 32))
 		    (if (logbitp (- shift 1) (acks client))
 			(setf discard t)
-			(setf (acks client) (boole boole-ior (acks client) (ash 1 (- shift 1)))))
+			(setf (acks client) (boole boole-ior (acks client) (ash 1 (- shift 1))))) ;; TODO check exclusive vs inclusive
 		    (setf discard t)))
 	      (setf discard t)))
       discard)))
@@ -408,17 +408,17 @@
   )
 
 (defmethod send-stuff ((self server))
-  (with-slots (urgent-messages current-time out-message socket sent waiting-for-ack outbox-timer outbox-clock sent-this-second max-message-count resend-time out-going-messages) self
+  (with-slots (urgent-messages current-time clock out-message socket sent waiting-for-ack outbox-timer outbox-clock sent-this-second max-message-count resend-time out-going-messages) self
     (loop while urgent-messages do
-	 (setf current-time (sdl2:get-ticks))
+	 (setf current-time (get-elapsed-time clock))
 	 (setf out-message (pop urgent-messages))
 	 (setf (time-sent out-message) current-time)
 	 
 	 (usocket:socket-send socket
-			      (packet out-message)
-			      (length (packet out-message))
-			      :host (addr out-message)
-			      :port (port out-message)) 
+			      (message-packet out-message)
+			      (length (message-packet out-message))
+			      :host (message-addr out-message)
+			      :port (message-port out-message)) 
 	 (setf (gethash (sequence out-message) sent) out-message)
 	 (unless (= (ttl out-message) 0)
 	   (setf (gethash current-time waiting-for-ack) out-message)))
@@ -429,38 +429,38 @@
       (decf outbox-timer 1000))
     
     (when (and (> (hash-table-count waiting-for-ack) 0) (< sent-this-second max-message-count))
-      (setf current-time (sdl2:get-ticks))
-      (let ((time-key (loop for time being the hash-key in waiting-for-ack thereis (> time 0)))) ;; bug warning, hashtable not ordered!
+      (setf current-time (get-elapsed-time clock))
+      (let ((time-key (first (sort (hash-table-keys waiting-for-ack) #'>)))) ;; hash-tables are unordered
 	(when (>= (- current-time time-key) resend-time)
 	  (let ((msg (gethash time-key waiting-for-ack)))
 	    (remhash time-key waiting-for-ack)
-	    (setf (time-sent (gethash (sequence msg) sent)) current-time)
+	    (setf (time-sent (gethash (message-sequence msg) sent)) current-time)
 	    
 	    (usocket:socket-send socket
-				 (packet msg)
-				 (length (packet msg))
-				 :host (addr msg)
-				 :port (port msg))
-	    (decf (ttl msg))
-	    (unless (= (ttl msg) 0)
-	      (setf (time-sent msg) current-time)
-	      (setf (gethash (time-sent msg) waiting-for-ack) msg))
+				 (message-packet msg)
+				 (length (message-packet msg))
+				 :host (message-addr msg)
+				 :port (message-port msg))
+	    (decf (message-ttl msg))
+	    (unless (= (message-ttl msg) 0)
+	      (setf (message-time-sent msg) current-time)
+	      (setf (gethash (message-time-sent msg) waiting-for-ack) msg))
 	    (incf sent-this-second)))))
     
     (when (and out-going-messages (< sent-this-second max-message-count))
-      (let ((msg (pop out-going-messages))))
-      (setf current-time (sdl2:get-ticks))
-      (setf (sent-time msg) current-time)
-      (usocket:socket-send socket
-			   (packet msg)
-			   (length (packet msg))
-			   :host (addr msg)
-			   :port (port msg))
-      (setf (gethash (sequence msg) sent) msg)
-      
-      (unless (= (ttl msg) 0)
-	(setf (gethash current-time waiting-for-ack) msg))
-      (incf sent-this-second))))
+      (let ((msg (pop out-going-messages)))
+	(setf current-time (sdl2:get-ticks))
+	(setf (message-sent-time msg) current-time)
+	(usocket:socket-send socket
+			     (message-packet msg)
+			     (length (message-packet msg))
+			     :host (message-addr msg)
+			     :port (message-port msg))
+	(setf (gethash (message-sequence msg) sent) msg)
+	
+	(unless (= (message-ttl msg) 0)
+	  (setf (gethash current-time waiting-for-ack) msg))
+	(incf sent-this-second)))))
 
 ;; (defmethod move-entity ((self server) event)
 ;;   (with-slots (scene) self

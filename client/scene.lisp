@@ -1,7 +1,11 @@
 (in-package #:faitaa-client)
 
 (defclass scene ()
-  ((last-agreed-client-status)
+  ((my-own-id
+    :initform 0
+    :accessory)
+   (last-agreed-client-status
+    :accessor last-agreed-client-status)
    (current-world-state
     :initform (make-world-state)
     :accessor current-world-state)
