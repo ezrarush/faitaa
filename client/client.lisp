@@ -46,7 +46,9 @@
    (synced-p
     :initform nil)
 
-   (clock)
+   (clock
+    :initform (make-instance 'clock)
+    :accessor clock)
    (current-time
     :initform 0)
    
@@ -63,7 +65,8 @@
    (missing-ack-p
     :initform nil)
    
-   (out-message)
+   (out-message
+    :initform (make-message))
    
    (srv-current-world-state)
    (srv-previous-world-state)
@@ -102,7 +105,8 @@
     :initform (make-hash-table)) ; which message was sent at what time - originally.
    (ws-on-server
     :initform (make-hash-table)) ; this is where we archive incoming ws messages from the server
-   (outbox-clock)
+   (outbox-clock
+    :initform (make-instance 'clock))
    (outbox-timer
     :initform 0)
    (sent-this-second
@@ -159,7 +163,7 @@
 					 server-port
 					 :protocol :datagram
 					 :element-type '(unsigned-byte 8)))   
-    (format t "connected to server~%")
+    (format t "socket to server opened~%")
     (finish-output)))
 
 (defmethod connect ((self client))
@@ -175,7 +179,7 @@
 		  (receive-stuff self)
 		  (send-stuff self)
 		  (sleep pause)
-		  (incf trying (clock-start tmp-clock))))
+		  (incf trying (restart-clock tmp-clock))))
 	   (incf attempts)))
     connected-p))
 
@@ -186,11 +190,11 @@
 
 ;; TODO make sure msg and client::out-message are the same object
 (defmethod pack-header ((self client)  msg msg-type time ttl)
-  (with-slots (protocol-id local-sequence remote-sequence server-addr) self
+  (with-slots (protocol-id client-id local-sequence remote-sequence server-addr) self
     (setf (message-packet msg) (userial:make-buffer))
     (userial:with-buffer (message-packet msg)
       (userial:serialize* :uint16 protocol-id
-			  :uint16 u-id
+			  :uint16 client-id
 			  :uint32 local-sequence
 			  :uint32 remote-sequence
 			  :msg msg-type))
@@ -237,7 +241,7 @@
   (with-slots (in-ack last-ack ack-field in-field sent waiting-for-ack missing-ack-p) self
     (when (or (later in-ack last-ack) (= in-ack last-ack))
       (let ((i (- in-ack last-ack)))
-	(setf ack-field) (ash ack-field i)
+	(setf ack-field (ash ack-field i))
 	(setf ack-field (boole boole-xor ack-field in-field)) ;; TODO check bug in using exclusive or instead of inclusive or
 	
 	;; acking current

@@ -3,7 +3,7 @@
 (defclass scene ()
   ((my-own-id
     :initform 0
-    :accessory)
+    :accessor my-own-id)
    (last-agreed-client-status
     :accessor last-agreed-client-status)
    (current-world-state
