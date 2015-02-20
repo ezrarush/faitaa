@@ -167,12 +167,13 @@
     (finish-output)))
 
 (defmethod connect ((self client))
-  (with-slots (server-addr server-port connected-p out-message clock name connect-timeout pause) self
+  (with-slots (server-addr server-port connected-p out-message out-going-messages clock name connect-timeout pause) self
     (let ((attempts 0))
-      (loop until (or connected-p (> attempts 3)) do
+      (loop until (or connected-p (>= attempts 3)) do
 	   (pack-header self out-message :first-contact (get-elapsed-time clock) 0)
 	   (userial:with-buffer (message-packet out-message)
 	     (userial:serialize* :string name))
+	   (setf out-going-messages (append out-going-messages (list out-message)))	   
 	   (let ((trying 0)
 		 (tmp-clock (make-instance 'clock)))
 	     (loop until (or connected-p (> trying connect-timeout)) do
@@ -183,14 +184,11 @@
 	   (incf attempts)))
     connected-p))
 
-;; (defun disconnect-from-server ()
-;;   (assert *server-connection*)
-;;   (usocket:socket-close *server-connection*)
-;;   (setf *server-connection* nil))
-
 ;; TODO make sure msg and client::out-message are the same object
-(defmethod pack-header ((self client)  msg msg-type time ttl)
+(defmethod pack-header ((self client) msg msg-type time ttl)
   (with-slots (protocol-id client-id local-sequence remote-sequence server-addr) self
+    (format t "packing header~%")
+    (finish-output)
     (setf (message-packet msg) (userial:make-buffer))
     (userial:with-buffer (message-packet msg)
       (userial:serialize* :uint16 protocol-id
@@ -202,7 +200,10 @@
     (setf (message-sequence msg) local-sequence)
     (setf (message-time-sent msg) time)
     (setf (message-ttl msg) ttl)
-    (incf local-sequence)))
+    (incf local-sequence))
+  (format t "end of pack header~%")
+  (finish-output)
+  )
 
 (defmethod receive-stuff ((self client))
   (with-slots (socket in-addr in-port in-pid in-uid in-seq in-ack in-field in-msg in-rtt protocol-id remote-sequence sent waiting-for-ack) self
@@ -239,6 +240,8 @@
 
 (defmethod roger-that ((self client))
   (with-slots (in-ack last-ack ack-field in-field sent waiting-for-ack missing-ack-p) self
+    (format t "rogering packet~%")
+    (finish-output)
     (when (or (later in-ack last-ack) (= in-ack last-ack))
       (let ((i (- in-ack last-ack)))
 	(setf ack-field (ash ack-field i))
@@ -849,7 +852,7 @@
 ;; (defmethod setup ((self client)))
 
 (defmethod send-stuff ((self client))
-  (with-slots (urgent-messages current-time clock out-message sock server-addr server-port sent-this-second max-message-count sent waiting-for-ack outbox-timer outbox-clock avg-pps max-pps out-going-messages max-message-count) self
+  (with-slots (urgent-messages current-time clock out-message socket server-addr server-port sent-this-second max-message-count sent waiting-for-ack outbox-timer outbox-clock avg-pps max-pps out-going-messages max-message-count) self
     (loop while urgent-messages do
 	 (setf current-time (get-elapsed-time clock))
 	 (setf out-message (pop urgent-messages))
@@ -904,18 +907,18 @@
 	      (setf (time-sent msg) current-time)
 	      (setf (gethash (time-sent msg) waiting-for-ack) msg))
 	    (incf sent-this-second)))))
-    
+
+    ;; send ordinary messages, at most one at a time
     (when (and out-going-messages (< sent-this-second max-message-count))
-      (let ((msg (pop out-going-messages))))
       (setf current-time (sdl2:get-ticks))
-      (setf (sent-time msg) current-time)
-      (usocket:socket-send socket
-			   (packet msg)
-			   (length (packet msg))
-			   :host (addr msg)
-			   :port (port msg))
-      (setf (gethash (sequence msg) sent) msg)
-      
-      (unless (= (ttl msg) 0)
-	(setf (gethash current-time waiting-for-ack) msg))
+      (let ((msg (pop out-going-messages)))
+	(setf (message-time-sent msg) current-time)
+	(usocket:socket-send socket
+			     (message-packet msg)
+			     (length (message-packet msg))
+			     :host (message-addr msg)
+			     :port (message-port msg))
+	(setf (gethash (message-sequence msg) sent) msg)
+	(unless (= (message-ttl msg) 0)
+	  (setf (gethash current-time waiting-for-ack) msg)))
       (incf sent-this-second))))

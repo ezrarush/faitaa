@@ -324,6 +324,7 @@
       (multiple-value-bind (buffer size remote-host remote-port)
 	  (usocket:socket-receive socket (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
 	
+	(format t "received a packet~%")
 	(setf in-packet buffer)
 	(setf in-addr remote-host)
 	(setf in-port remote-port)
