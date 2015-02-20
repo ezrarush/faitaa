@@ -238,36 +238,36 @@
 	  (progn
 	    (format t "suspicious rtt")
 	    (finish-output)
-	    (decf (handshaken client)))
-	  (setf (rtt client) (+ (rtt client) in-rtt)))
-      (incf (handshaken client))
-      (if (= (handshaken client) handshake-needed)
+	    (decf (client-handshaken client)))
+	  (setf (client-rtt client) (+ (client-rtt client) in-rtt)))
+      (incf (client-handshaken client))
+      (if (= (client-handshaken client) handshake-needed)
 	  (progn
-	    (setf (rtt client) (/ (rtt client) handshake-needed))
-	    (setf (connected-p client) t)
-	    (format t "client connected (RTT:~a)~%" (rtt client))
+	    (setf (client-rtt client) (round (/ (client-rtt client) handshake-needed)))
+	    (setf (client-connected-p client) t)
+	    (format t "client connected (RTT:~a)~%" (client-rtt client))
 	    (finish-output)
 	    (broadcast-lobby-info self))
 	  (progn
-	    (pack-header self out-message (u-id client) :handshake (get-elapsed-time clock) 3)
+	    (pack-header self out-message (client-id client) :handshake (get-elapsed-time clock) 3)
 	    (setf urgent-messages (append urgent-messages (list out-message))))))))
 
 (defmethod broadcast-lobby-info ((self server))
-  (with-slots (cloct out-message urgent-messages) self
+  (with-slots (clock out-message urgent-messages) self
     (let ((connected-clients (list))
 	  (time (get-elapsed-time clock)))
       (loop for client being the hash-value in *clients* do
-	   (when (connected-p client)
+	   (when (client-connected-p client)
 	     (push (client-id client) connected-clients)))
       (loop for client being the hash-value in *clients* do
-	   (when (connected-p client)
-	     (pack-header out-message (client-id client) :lobby-info time 3)
+	   (when (client-connected-p client)
+	     (pack-header self out-message (client-id client) :lobby-info time 3)
 	     (userial:with-buffer (message-packet out-message)
 	       (userial:serialize* :uint16 (length connected-clients))
 	       (loop for client-id in connected-clients do
-		    (userial:serialize* :string (name (lookup-client-by-id client-id))
-					:int32 (rtt (lookup-client-by-id client-id))
-					:boolean (ready-p (lookup-client-by-id client-id))))
+		    (userial:serialize* :string (client-name (lookup-client-by-id client-id))
+					:int32 (client-rtt (lookup-client-by-id client-id))
+					:boolean (client-ready-p (lookup-client-by-id client-id))))
 	       (setf urgent-messages (append urgent-messages (list out-message)))))))))
 
 (defmethod sync-time ((self server))
@@ -306,9 +306,9 @@
 
 (defmethod incoming-ready ((self server))
   (with-slots (in-addr in-port expected-clients sync-attempted-p) self
-    (setf (ready-p (lookup-client-by-port in-port)) t)
+    (setf (client-ready-p (lookup-client-by-port in-port)) t)
     (broadcast-lobby-info self)
-    (when (and (all-clients-ready-p) (= (hash-table-count *clients*) expected-clients) (not (sync-attempted-p)))
+    (when (and (all-clients-ready-p) (= (hash-table-count *clients*) expected-clients) (not sync-attempted-p))
       (format t "all clients ready, syncing clocks...~%")
       (finish-output)
       (sync-time self)
@@ -316,16 +316,18 @@
 
 (defmethod incoming-unready ((self server))
   (with-slots (in-addr in-port) self
-	(setf (ready-p (lookup-client-by-port in-port)) nil)
+	(setf (client-ready-p (lookup-client-by-port in-port)) nil)
 	(broadcast-lobby-info self)))
 
 (defmethod receive-stuff ((self server))
-  (with-slots (socket in-packet in-addr in-port in-pid in-uid in-seq in-ack in-msg in-rtt protocol-id sent waiting-for-ack) self
+  (with-slots (socket in-packet in-addr in-port in-pid in-uid in-seq in-ack in-msg clock in-rtt protocol-id sent waiting-for-ack) self
     (when (usocket:wait-for-input socket :timeout 0 :ready-only t) 
       (multiple-value-bind (buffer size remote-host remote-port)
 	  (usocket:socket-receive socket (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
 	
-	(format t "received a packet~%")
+	;; (format t "received a packet~%")
+	;; (finish-output)
+	
 	(setf in-packet buffer)
 	(setf in-addr remote-host)
 	(setf in-port remote-port)
@@ -343,14 +345,14 @@
 				    (when (= in-pid protocol-id)
 				      (let ((discard-p nil))
 					(unless (eq in-msg :first-contact)
-					  (setf discard-p (roger-that)))
+					  (setf discard-p (roger-that self)))
 					(unless discard-p
 					  (unless (eq in-msg :first-contact)
-					    (setf (last-ack (lookup-client-by-port in-port)) in-ack))
+					    (setf (client-last-ack (lookup-client-by-port in-port)) in-ack))
 					  
 					  ;; set inRTT if handshake
-					  (when (and (not (gethash in-ack sent)) (eq in-msg :handshake))
-					    (setf in-rtt (- (sdl2:get-ticks) (message-time-sent (gethash in-ack sent)))))
+					  (when (and (gethash in-ack sent) (eq in-msg :handshake))
+					    (setf in-rtt (- (get-elapsed-time clock) (message-time-sent (gethash in-ack sent)))))
 					  
 					  ;; remove acked message from sent and waitingForAck queues
 					  (when (gethash in-ack sent)
@@ -414,8 +416,8 @@
   (with-slots (urgent-messages current-time clock out-message socket sent waiting-for-ack outbox-timer outbox-clock sent-this-second max-message-count resend-time out-going-messages) self
     
     (loop while urgent-messages do
-	 (format t "sending urgent packet~%")
-	 (finish-output)
+	 ;; (format t "sending urgent packet~%")
+	 ;; (finish-output)
 	 (setf current-time (get-elapsed-time clock))
 	 (setf out-message (pop urgent-messages))
 	 (setf (message-time-sent out-message) current-time)
@@ -453,8 +455,8 @@
 	    (incf sent-this-second)))))
     
     (when (and out-going-messages (< sent-this-second max-message-count))
-      (format t "sending ordinary packet~%")
-      (finish-output)
+      ;; (format t "sending ordinary packet~%")
+      ;; (finish-output)
       (let ((msg (pop out-going-messages)))
 	(setf current-time (get-elapsed-time clock))
 	(setf (message-sent-time msg) current-time)

@@ -59,7 +59,8 @@
    
    (remote-sequence
     :initform 0)
-   (last-ack)
+   (last-ack
+    :initform 0)  ;; changed from reference ... which did not initialize the uint32
    (ack-field)
    
    (missing-ack-p
@@ -184,10 +185,8 @@
 	   (incf attempts)))
     connected-p))
 
-;; TODO make sure msg and client::out-message are the same object
 (defmethod pack-header ((self client) msg msg-type time ttl)
   (with-slots (protocol-id client-id local-sequence remote-sequence server-addr) self
-    (format t "packing header~%")
     (finish-output)
     (setf (message-packet msg) (userial:make-buffer))
     (userial:with-buffer (message-packet msg)
@@ -200,13 +199,10 @@
     (setf (message-sequence msg) local-sequence)
     (setf (message-time-sent msg) time)
     (setf (message-ttl msg) ttl)
-    (incf local-sequence))
-  (format t "end of pack header~%")
-  (finish-output)
-  )
+    (incf local-sequence)))
 
 (defmethod receive-stuff ((self client))
-  (with-slots (socket in-addr in-port in-pid in-uid in-seq in-ack in-field in-msg in-rtt protocol-id remote-sequence sent waiting-for-ack) self
+  (with-slots (socket in-packet in-addr in-port in-pid in-uid in-seq in-ack in-field in-msg in-rtt protocol-id remote-sequence sent waiting-for-ack) self
     (let ((recvd-p nil))
       (when (usocket:wait-for-input socket :timeout 0 :ready-only t) 
 	(multiple-value-bind (buffer size remote-host remote-port)
@@ -226,14 +222,18 @@
 				      (setf in-ack ack)
 				      (setf in-field field)
 				      (setf in-msg message-type)
+
+				      
 				      
 				      (when (and (eq in-pid protocol-id) (later in-seq remote-sequence))
+				
+					
 					(setf remote-sequence in-seq)
 					(roger-that self)
 					(setf recvd-p t)
 					(ecase in-msg
 					  (:handshake (incoming-handshake self))
-					  (:lobby-info (inncoming-lobby-info self))
+					  (:lobby-info (incoming-lobby-info self))
 					  (:sync-clocks (incoming-sync self))
 					  (:world-state (incoming-ws self))))))))
       recvd-p)))
@@ -242,36 +242,39 @@
   (with-slots (in-ack last-ack ack-field in-field sent waiting-for-ack missing-ack-p) self
     (format t "rogering packet~%")
     (finish-output)
-    (when (and (boundp 'last-ack) (or (later in-ack last-ack) (= in-ack last-ack))) ;; changed from reference because last-ack not initialized
-      (let ((i (- in-ack last-ack)))
-	(setf ack-field (ash ack-field i))
-	(setf ack-field (boole boole-xor ack-field in-field)) ;; TODO check bug in using exclusive or instead of inclusive or
-	
-	;; acking current
-	(let ((msg (gethash in-ack sent)))
-	  (when msg
-	    (remhash (message-time-sent msg) waiting-for-ack)
-	    (remhash in-ack sent)))
-	
-	;;acking past
-	(loop for i from 0 to 31 do
-	     (when (logbitp i ack-field)
-	       (let ((msg (gethash (- in-ack (+ 1 i)) sent)))
-		 (when msg
-		   (remhash (message-time-sent msg) waiting-for-ack)
-		   (remhash in-ack sent)))))
-	
-	(setf ack-field in-field)
-	(setf last-ack in-ack)
-	
-	;; look for missing acks
-	(setf missing-ack-p nil)
-	(loop for i from 0 to (if (< (- last-ack 1) 32) (- last-ack 2) 31) do
-	     (unless (logbitp i ack-field)
-	       ;; no ack received for sequence last-ack - 1 - i
-	       (format t "missing ack~%")
-	       (finish-output)
-	       (setf missing-ack-p t)))))
+
+    (when (or (later in-ack last-ack) (= in-ack last-ack))
+      (return-from roger-that))
+    
+    (let ((i (- in-ack last-ack)))
+      (setf ack-field (ash ack-field i))
+      (setf ack-field (boole boole-xor ack-field in-field)) ;; TODO check bug in using exclusive or instead of inclusive or
+      
+      ;; acking current
+      (let ((msg (gethash in-ack sent)))
+	(when msg
+	  (remhash (message-time-sent msg) waiting-for-ack)
+	  (remhash in-ack sent)))
+      
+      ;;acking past
+      (loop for i from 0 to 31 do
+	   (when (logbitp i ack-field)
+	     (let ((msg (gethash (- in-ack (+ 1 i)) sent)))
+	       (when msg
+		 (remhash (message-time-sent msg) waiting-for-ack)
+		 (remhash in-ack sent)))))
+      
+      (setf ack-field in-field)
+      (setf last-ack in-ack)
+      
+      ;; look for missing acks
+      (setf missing-ack-p nil)
+      (loop for i from 0 to (if (< (- last-ack 1) 32) (- last-ack 2) 31) do
+	   (unless (logbitp i ack-field)
+	     ;; no ack received for sequence last-ack - 1 - i
+	     (format t "missing ack~%")
+	     (finish-output)
+	     (setf missing-ack-p t))))
     missing-ack-p))
 
 (defmethod ready-or-not ((self client))
@@ -288,12 +291,12 @@
       (userial:unserialize-let* (:uint16 count)
 				(loop repeat count do 
 				     (userial:unserialize-let* (:string in-name :int32 in-ping :boolean in-ready-p)
-							       (format t "~a (ping:~a)" in-name in-ping)
+							       (format t "~a (ping: ~ams)" in-name in-ping)
 							       (if in-ready-p
-								   (format t "ready")
-								   (format t "not ready"))
-							       (when (= in-name name)
-								 (format t "*you*"))
+								   (format t " ready")
+								   (format t " not ready"))
+							       (when (eq in-name name)
+								 (format t " *you*"))
 							       (format t "~%")))))
     (setf connected-p t)
     
@@ -314,7 +317,7 @@
 (defmethod incoming-sync ((self client))
   (with-slots (clock out-message urgent-messages synced-p) self
     (restart-clock clock)
-    (pack-header out-message :sync-clocks (get-elapsed-time clock) 6)
+    (pack-header self out-message :sync-clocks (get-elapsed-time clock) 6)
     (setf urgent-messages (append urgent-messages (list out-message)))
     (setf synced-p t)))
 
@@ -760,7 +763,7 @@
 
 			  ;; update everything at this very moment
 			  (update-all scene (event-time event))
-			  (setf update-already t)
+			  (setf updated-already t)
 			  
 			  ;;save world snapshot
 			  (archive-current-world-state scene (event-time event))
@@ -815,9 +818,9 @@
 		    (send-stuff self)
 		    (receive-stuff self)
 		    
-		    (if (not update-already-p)
+		    (if (not updated-already-p)
 			(update-all-at scene (get-elapsed-time clock))
-			(setf update-already-p nil))
+			(setf updated-already-p nil))
 		    
 		    (render-scene)
 		    (sdl2:gl-swap-window win)
@@ -894,8 +897,8 @@
      ;; resend one packet at a time
     
     (when (and (> (hash-table-count waiting-for-ack) 0) (< sent-this-second max-message-count))
-      (format t "resending a packet that has not be acked~%")
-      (finish-output)
+      ;; (format t "resending a packet that has not be acked~%")
+      ;; (finish-output)
       (setf current-time (get-elapsed-time clock))
       (let ((time-key (first (sort (alexandria:hash-table-keys waiting-for-ack) #'>))))
 	(when (>= (- current-time time-key) resend-time)

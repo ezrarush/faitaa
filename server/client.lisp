@@ -36,14 +36,14 @@
 (defun all-clients-ready-p ()
   (let ((flag t))
     (loop for client being the hash-value in *clients* do
-	 (when (eq (ready-p client) nil)
+	 (when (eq (client-ready-p client) nil)
 	   (return (setf flag nil))))
     flag))
 
 (defun all-clients-synced-p ()
   (let ((flag t))
     (loop for client being the hash-value in *clients* do
-	 (when (eq (synced-p client) nil)
+	 (when (eq (client-synced-p client) nil)
 	   (return (setf flag nil))))
     flag))
 
@@ -64,7 +64,8 @@
     :initarg :port
     :accessor client-port)
    (rtt
-    :initform 0)
+    :initform 0
+    :accessor client-rtt)
    (sequence
     :initform 0
     :accessor client-sequence)
@@ -75,13 +76,17 @@
     :initform 0
     :accessor client-acks)
    (handshaken
-    :initform 0)
+    :initform 0
+    :accessor client-handshaken)
    (connected-p
-    :initform nil)
+    :initform nil
+    :accessor client-connected-p)
    (synced-p
-    :initform nil)
+    :initform nil
+    :accessor client-synced-p)
    (ready-p
-    :initform nil)
+    :initform nil
+    :accessor client-ready-p)
    (last-seen-command-time
     :initform 0)
    (delta-to-first-tick
