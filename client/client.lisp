@@ -218,7 +218,7 @@
 	  
 	  (userial:with-buffer in-packet
 	    (userial:buffer-rewind)
-	    (userial:unserialize-let* (:uint16 pid :uint16 uid :uint32 seq :uint32 ack :unit32 field :msg message-type)
+	    (userial:unserialize-let* (:uint16 pid :uint16 uid :uint32 seq :uint32 ack :uint32 field :msg message-type)
 				      
 				      (setf in-pid pid)
 				      (setf in-uid uid)
@@ -242,7 +242,7 @@
   (with-slots (in-ack last-ack ack-field in-field sent waiting-for-ack missing-ack-p) self
     (format t "rogering packet~%")
     (finish-output)
-    (when (or (later in-ack last-ack) (= in-ack last-ack))
+    (when (and (boundp 'last-ack) (or (later in-ack last-ack) (= in-ack last-ack))) ;; changed from reference because last-ack not initialized
       (let ((i (- in-ack last-ack)))
 	(setf ack-field (ash ack-field i))
 	(setf ack-field (boole boole-xor ack-field in-field)) ;; TODO check bug in using exclusive or instead of inclusive or
@@ -852,32 +852,34 @@
 ;; (defmethod setup ((self client)))
 
 (defmethod send-stuff ((self client))
-  (with-slots (urgent-messages current-time clock out-message socket server-addr server-port sent-this-second max-message-count sent waiting-for-ack outbox-timer outbox-clock avg-pps max-pps out-going-messages max-message-count) self
+  (with-slots (urgent-messages current-time clock out-message socket server-addr server-port sent-this-second max-message-count sent waiting-for-ack outbox-timer outbox-clock avg-pps max-pps out-going-messages max-message-count resend-time) self
     (loop while urgent-messages do
+	 (format t "sending urgent messages~%")
+	 (finish-output)
 	 (setf current-time (get-elapsed-time clock))
 	 (setf out-message (pop urgent-messages))
-	 (setf (time-sent out-message) current-time)
+	 (setf (message-time-sent out-message) current-time)
 	 
 	 (usocket:socket-send socket
 			      (message-packet out-message)
-			      (length (packet out-message))
-			      :host (addr out-message)
-			      :port (port out-message)) 
+			      (length (message-packet out-message))
+			      :host (message-addr out-message)
+			      :port (message-port out-message)) 
 	 
 	 ;; send it twice for reliability
 	 (let ((resend nil))
 	   (when (< sent-this-second max-message-count)
 	     (usocket:socket-send socket
 				  (message-packet out-message)
-				  (length (packet out-message))
-				  :host (addr out-message)
-				  :port (port out-message))   
+				  (length (message-packet out-message))
+				  :host (message-addr out-message)
+				  :port (message-port out-message))   
 	     (setf resend t))
 	   
 	   (setf (gethash (message-sequence out-message) sent) out-message)
 	   (unless (= (message-ttl out-message) 0)
 	     (setf (gethash current-time waiting-for-ack) out-message))
-	   (setf sent-this-second (+ sent-this-second 1 (if resent 1 0)))))
+	   (setf sent-this-second (+ sent-this-second 1 (if resend 1 0)))))
     
     (incf outbox-timer (restart-clock outbox-clock))
     (when (>= outbox-timer 1000)
@@ -889,28 +891,34 @@
       (setf sent-this-second 0)
       (decf outbox-timer 1000))
 
+     ;; resend one packet at a time
+    
     (when (and (> (hash-table-count waiting-for-ack) 0) (< sent-this-second max-message-count))
+      (format t "resending a packet that has not be acked~%")
+      (finish-output)
       (setf current-time (get-elapsed-time clock))
-      (let ((time-key (loop for time being the hash-key in waiting-for-ack thereis (> time 0)))) ;; bug warning, hashtable not ordered!
+      (let ((time-key (first (sort (alexandria:hash-table-keys waiting-for-ack) #'>))))
 	(when (>= (- current-time time-key) resend-time)
 	  (let ((msg (gethash time-key waiting-for-ack)))
 	    (remhash time-key waiting-for-ack)
-	    (setf (time-sent (gethash (sequence msg) sent)) current-time)
+	    (setf (message-time-sent (gethash (message-sequence msg) sent)) current-time)
 	    
 	    (usocket:socket-send socket
-				 (packet msg)
-				 (length (packet msg))
-				 :host (addr msg)
-				 :port (port msg))
-	    (decf (ttl msg))
-	    (unless (= (ttl msg) 0)
-	      (setf (time-sent msg) current-time)
-	      (setf (gethash (time-sent msg) waiting-for-ack) msg))
+				 (message-packet msg)
+				 (length (message-packet msg))
+				 :host (message-addr msg)
+				 :port (message-port msg))
+	    (decf (message-ttl msg))
+	    (unless (= (message-ttl msg) 0)
+	      (setf (message-time-sent msg) current-time)
+	      (setf (gethash (message-time-sent msg) waiting-for-ack) msg))
 	    (incf sent-this-second)))))
 
     ;; send ordinary messages, at most one at a time
     (when (and out-going-messages (< sent-this-second max-message-count))
-      (setf current-time (sdl2:get-ticks))
+      (format t "sending ordinary message~%")
+      (finish-output)
+      (setf current-time (get-elapsed-time clock))
       (let ((msg (pop out-going-messages)))
 	(setf (message-time-sent msg) current-time)
 	(usocket:socket-send socket

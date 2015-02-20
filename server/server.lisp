@@ -76,7 +76,8 @@
    (in-rtt)
    (in-msg)
    
-   (out-message)
+   (out-message
+    :initform (make-message))
 
    (last-sent-cleanup
     :initform 0)
@@ -150,18 +151,18 @@
   (with-slots (in-port in-seq ) self
     (let* ((discard nil)
 	   (client (lookup-client-by-port in-port))
-	   (previous (sequence client)))
+	   (previous (client-sequence client)))
       (if (later-sequence in-seq previous)
 	  (let ((shift (- in-seq previous)))
-	    (setf (acks client) (ash (acks client shift)))
-	    (setf (acks client) (boole boole-ior (acks client) (ash 1 (- shift 1))))
-	    (setf (sequence client) in-seq))
+	    (setf (client-acks client) (ash (client-acks client) shift))
+	    (setf (client-acks client) (boole boole-ior (client-acks client) (ash 1 (- shift 1))))
+	    (setf (client-sequence client) in-seq))
 	  (if (not (eq in-seq previous))
 	      (let ((shift (- previous in-seq)))
 		(if (and (>= (- shift 1) 0) (< (- shift 1) 32))
-		    (if (logbitp (- shift 1) (acks client))
+		    (if (logbitp (- shift 1) (client-acks client))
 			(setf discard t)
-			(setf (acks client) (boole boole-ior (acks client) (ash 1 (- shift 1))))) ;; TODO check exclusive vs inclusive
+			(setf (client-acks client) (boole boole-ior (client-acks client) (ash 1 (- shift 1))))) ;; TODO check exclusive vs inclusive
 		    (setf discard t)))
 	      (setf discard t)))
       discard)))
@@ -205,7 +206,7 @@
 
 (defmethod incoming-first-contact ((self server))
   (with-slots (in-packet in-addr in-port waiting-for-ack out-message clock urgent-messages) self 
-      (userial:with-buffer message
+      (userial:with-buffer in-packet
 	(userial:unserialize-let* (:string name)
 	  (if (lookup-client-by-port in-port)
 	      (progn
@@ -319,7 +320,7 @@
 	(broadcast-lobby-info self)))
 
 (defmethod receive-stuff ((self server))
-  (with-slots (socket in-addr in-port in-pid in-uid in-seq in-ack in-msg in-rtt protocol-id sent waiting-for-ack) self
+  (with-slots (socket in-packet in-addr in-port in-pid in-uid in-seq in-ack in-msg in-rtt protocol-id sent waiting-for-ack) self
     (when (usocket:wait-for-input socket :timeout 0 :ready-only t) 
       (multiple-value-bind (buffer size remote-host remote-port)
 	  (usocket:socket-receive socket (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
@@ -332,28 +333,29 @@
 	(userial:with-buffer in-packet
 	  (userial:buffer-rewind)
 	  (userial:unserialize-let* (:uint16 protocol-id :uint16 client-id :uint32 remote-sequence :uint32 ack :msg message-type)
-				    
+
 				    (setf in-pid protocol-id)
 				    (setf in-uid client-id)
 				    (setf in-seq remote-sequence)
 				    (setf in-ack ack)
 				    (setf in-msg message-type)
 				    
-				    (when (eq in-pid protocol-id)
+				    (when (= in-pid protocol-id)
 				      (let ((discard-p nil))
-					(unless (= in-msg :first-contact)
+					(unless (eq in-msg :first-contact)
 					  (setf discard-p (roger-that)))
-					(unless disard-p
-					  (unless (= in-msg :first-contact)
+					(unless discard-p
+					  (unless (eq in-msg :first-contact)
 					    (setf (last-ack (lookup-client-by-port in-port)) in-ack))
 					  
 					  ;; set inRTT if handshake
-					  (when (and (not (gethash in-ack sent)) (= in-msg :handshake))
-					    (setf in-rtt (- (sdl2:get-ticks) (time-sent (gethash in-ack sent)))))
+					  (when (and (not (gethash in-ack sent)) (eq in-msg :handshake))
+					    (setf in-rtt (- (sdl2:get-ticks) (message-time-sent (gethash in-ack sent)))))
 					  
 					  ;; remove acked message from sent and waitingForAck queues
-					  (remhash (time-sent (gethash in-ack sent)) waiting-for-ack)
-					  (remhash in-ack sent)
+					  (when (gethash in-ack sent)
+					    (remhash (message-time-sent (gethash in-ack sent)) waiting-for-ack)
+					    (remhash in-ack sent))
 
 					  ;; dispatch, depending on messsage type
 					  (ecase in-msg
@@ -410,18 +412,20 @@
 
 (defmethod send-stuff ((self server))
   (with-slots (urgent-messages current-time clock out-message socket sent waiting-for-ack outbox-timer outbox-clock sent-this-second max-message-count resend-time out-going-messages) self
+    
     (loop while urgent-messages do
+	 (format t "sending urgent packet~%")
+	 (finish-output)
 	 (setf current-time (get-elapsed-time clock))
 	 (setf out-message (pop urgent-messages))
-	 (setf (time-sent out-message) current-time)
-	 
+	 (setf (message-time-sent out-message) current-time)
 	 (usocket:socket-send socket
 			      (message-packet out-message)
 			      (length (message-packet out-message))
 			      :host (message-addr out-message)
 			      :port (message-port out-message)) 
-	 (setf (gethash (sequence out-message) sent) out-message)
-	 (unless (= (ttl out-message) 0)
+	 (setf (gethash (message-sequence out-message) sent) out-message)
+	 (unless (= (message-ttl out-message) 0)
 	   (setf (gethash current-time waiting-for-ack) out-message)))
     
     (incf outbox-timer (restart-clock outbox-clock))
@@ -431,11 +435,11 @@
     
     (when (and (> (hash-table-count waiting-for-ack) 0) (< sent-this-second max-message-count))
       (setf current-time (get-elapsed-time clock))
-      (let ((time-key (first (sort (hash-table-keys waiting-for-ack) #'>)))) ;; hash-tables are unordered
+      (let ((time-key (first (sort (alexandria:hash-table-keys waiting-for-ack) #'>)))) ;; hash-tables are unordered
 	(when (>= (- current-time time-key) resend-time)
 	  (let ((msg (gethash time-key waiting-for-ack)))
 	    (remhash time-key waiting-for-ack)
-	    (setf (time-sent (gethash (message-sequence msg) sent)) current-time)
+	    (setf (message-time-sent (gethash (message-sequence msg) sent)) current-time)
 	    
 	    (usocket:socket-send socket
 				 (message-packet msg)
@@ -449,8 +453,10 @@
 	    (incf sent-this-second)))))
     
     (when (and out-going-messages (< sent-this-second max-message-count))
+      (format t "sending ordinary packet~%")
+      (finish-output)
       (let ((msg (pop out-going-messages)))
-	(setf current-time (sdl2:get-ticks))
+	(setf current-time (get-elapsed-time clock))
 	(setf (message-sent-time msg) current-time)
 	(usocket:socket-send socket
 			     (message-packet msg)
@@ -772,11 +778,12 @@
     (userial:with-buffer (message-packet msg)
       (userial:serialize* :uint16 protocol-id
 			  :uint16 u-id
-			:uint32 local-sequence
-			:uint32 (sequence (lookup-client-by-id u-id))
-			:uint32 (acks (lookup-client-by-id u-id))
-			:msg msg-type))
-    (setf (message-addr msg) (addr (lookup-client-by-id u-id)))
+			  :uint32 local-sequence
+			  :uint32 (client-sequence (lookup-client-by-id u-id))
+			  :uint32 (client-acks (lookup-client-by-id u-id))
+			  :msg msg-type))
+    (setf (message-addr msg) (client-addr (lookup-client-by-id u-id)))
+    (setf (message-port msg) (client-port (lookup-client-by-id u-id)))
     (setf (message-time-sent msg) time)
     (setf (message-ttl msg) ttl)
     (setf (message-sequence msg) local-sequence)

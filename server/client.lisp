@@ -19,7 +19,7 @@
 (defun lookup-client-by-port (port)
   (let ((found nil))
     (loop for client being the hash-value in *clients* do
-	 (when (eq (port client) port)
+	 (when (eq (client-port client) port)
 	   (setf found client)))
     found))
 
@@ -50,28 +50,30 @@
 (defclass client ()
   ((name 
     :initarg :name
-    :accessor name)
+    :accessor client-name)
    (client-id 
     :type integer
     :initform (make-client-id)
     :accessor client-id)
    (entity-id
-    :accessor entity-id)
+    :accessor client-entity-id)
    (addr
     :initarg :addr
-    :accessor addr)
+    :accessor client-addr)
    (port
     :initarg :port
-    :accessor port)
+    :accessor client-port)
    (rtt
     :initform 0)
    (sequence
-    :initform 0)
+    :initform 0
+    :accessor client-sequence)
    (last-ack
     :initform 0
-    :accessor last-ack)
+    :accessor client-last-ack)
    (acks
-    :initform 0)
+    :initform 0
+    :accessor client-acks)
    (handshaken
     :initform 0)
    (connected-p
@@ -84,7 +86,7 @@
     :initform 0)
    (delta-to-first-tick
     :initform 0
-    :accessor delta-to-first-tick)
+    :accessor client-delta-to-first-tick)
    (last-agreed-status
     :initform (make-entity-status))
    (first-delta-set-p

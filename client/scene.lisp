@@ -1,9 +1,9 @@
 (in-package #:faitaa-client)
 
 (defclass scene ()
-  ((my-own-id
+  ((my-own-uid
     :initform 0
-    :accessor my-own-id)
+    :accessor my-own-uid)
    (last-agreed-client-status
     :accessor last-agreed-client-status)
    (current-world-state
